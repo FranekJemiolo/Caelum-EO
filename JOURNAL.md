@@ -137,3 +137,17 @@ Expanding the architectural rigor of Project Caelum-EO to support a production-g
    - Rigorously filters and maps download URLs for the 6 core Prithvi foundation model bands (`B02`, `B03`, `B04`, `B8A`, `B11`, `B12`).
    - Enforced the decoupled ingestion pattern: Heavy GeoTIFF rasters are not downloaded in the polling thread. Instead, structured `STACIngestPayload` models are published to Kafka topic `geoint-stac-ingest`.
    - Included `--dry-run` flag and deterministic fallback handling for verification in local offline environments.
+
+---
+
+## Entry 009 - Task B: Prithvi-EO-2.0 Inference Coordinator Implementation
+*Date: September 27, 2026*
+
+### Implementation & Tradeoffs
+1. **Module:** `src/inference/detector.py`
+2. **Core Decisions:**
+   - Implemented `PrithviEOFoundationModel` PyTorch module integrating the 3D masked autoencoder backbone for `ibm-nasa-geospatial/Prithvi-EO-2.0-300M`.
+   - Supports GPU/MPS/CPU hardware acceleration (validated on Apple Silicon MPS).
+   - Enforces 6-band radiometric normalization with Copernicus Sentinel-2 Level-2A surface reflectance parameters.
+   - Implemented `InferenceCoordinator` Kafka listener consuming from `geoint-stac-ingest`, simulating windowed COG raster alignment and producing high-fidelity structural change masks.
+   - Tested and verified with synthetic input generating 2,475 anomaly pixels on a 256x256 grid.
