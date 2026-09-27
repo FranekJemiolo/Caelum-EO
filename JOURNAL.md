@@ -164,3 +164,18 @@
 - **Alternatives Considered:** Python iterative loop contouring vs. single-pass C-accelerated labeled shape extraction (`rasterio.features.shapes` on labeled arrays with `find_objects` and `np.bincount`).
 - **Decision & Rationale:** Refactored `VectorizationEngine.polygonize_binary_mask` to extract all polygon boundaries in a single C-level pass using `rasterio.features.shapes(labeled_mask.astype(np.int32), mask=(labeled_mask > 0))`, retrieving bounding boxes via `scipy.ndimage.find_objects` in $O(1)$ and pixel counts via `np.bincount`. Enhanced `PostGISPersistence.insert_detection` to spatially resolve `zone_id` using `ST_Intersects`, dynamically compute `priority_score`, automatically dispatch `dispatch_high_priority_alert` when `priority_score > 0.85`, and handle complex `MultiPolygon` results gracefully. Connected `VectorizationEngine` directly to `InferenceCoordinator.process_stac_event`.
 - **Impact:** Delivers up to 50x speedup in full-scene polygonization, guarantees zero dropped detections from geometric topology edge cases, and provides immediate event-driven alerting.
+
+---
+
+## [2026-09-27] - Operational Visual Verification & Strategic Defense Vision Doctrine
+
+- **Context:** Project Caelum-EO requires comprehensive operational proof demonstrating the end-to-end functionality of all UI and API components, captured under strict private/incognito browsing constraints. Additionally, strategic commanders and engineers require a formal Vision & Operational Doctrine document detailing the long-term defense mission, taxonomy, and multi-modal roadmap.
+- **Alternatives Considered:** Manual browser screen captures vs. deterministic headless Playwright private browser automation (`scripts/capture_screenshots.py`); high-level marketing overview vs. formal defense intelligence doctrine (`docs/VISION.md`).
+- **Decision & Rationale:** Engineered `scripts/capture_screenshots.py` using Playwright in headless private/incognito mode (`browser.new_context()`). Successfully executed visual validation across five core operational milestones:
+  1. `01_login_portal.png`: Defense-Grade OAuth2 RBAC portal with role presets (`admin`, `analyst`, `viewer`).
+  2. `02_tactical_hud_map.png`: Real-time WebGL Deck.gl surveillance map with 3D extruded footprints and timeline scrubber.
+  3. `03_target_dossier.png`: Target intelligence dossier with geodesic measurements and priority ranking.
+  4. `04_multi_temporal_inspector.png`: Multi-temporal $T_0$ vs $T_1$ comparison swipe inspector with AI change mask overlay.
+  5. `05_hitl_reclassification.png`: Human-in-the-Loop review modal with single-key hotkeys and audit logging.
+     Penned `docs/VISION.md` detailing the operational doctrine, zero-cloud sovereign readiness, two-stage tactical discrimination, and strategic roadmap. Embedded all visual captures and linked the vision document with a checklist in `README.md`.
+- **Impact:** Delivers verifiable, automated proof of system capabilities, cements the strategic defense doctrine, and guarantees documentation integrity across all repository touchpoints.

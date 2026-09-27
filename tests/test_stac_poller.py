@@ -7,8 +7,8 @@ from src.ingestion.stac_poller import (
     DEFAULT_EASTERN_EUROPE_BBOX,
     REQUIRED_S2_BANDS,
     STACAssetReference,
-    STACIngestPayload,
     STACIngestionWorker,
+    STACIngestPayload,
 )
 
 
