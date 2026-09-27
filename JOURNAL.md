@@ -178,3 +178,16 @@ Expanding the architectural rigor of Project Caelum-EO to support a production-g
    - Creates primary table `infrastructure_detections` with Polygon geometry constraint in WGS 84 (`EPSG:4326`).
    - Builds explicit `GIST` spatial index, temporal index, and covering spatial index.
    - Seeds 5 realistic operational targets across Suwalki Gap to enable immediate visual testing.
+
+---
+
+## Entry 012 - Task E: Deck.gl React Map Visualization Scaffold
+*Date: September 27, 2026*
+
+### Implementation & Tradeoffs
+1. **Module:** `src/frontend/`
+2. **Core Decisions:**
+   - Scaffolded React 18 + Vite application with `deck.gl` and `react-map-gl`.
+   - Implemented `MapComponent.jsx` utilizing `GeoJsonLayer` over a dark-matter basemap.
+   - Color-codes detected structures by their `classification` attribute (Amber for Radar Dome, Emerald for Logistics Depot, Cyan for Airfield Runway, Crimson for SAM Battery, Purple for Hardened Shelter).
+   - Configured Dockerfile exposing port 3000 matching `docker-compose.yml` service definition.

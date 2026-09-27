@@ -1,84 +1,79 @@
-# Project Caelum-EO: System Architecture Specification
+# Project Caelum-EO: System Architecture Specification (Phase 2 Deep Design)
 
-**Repository:** `github.com/FranekJemiolo/Caelum-EO`  
-**Author:** Franek Jemiolo  
-**Status:** Approved / In Progress
+**Repository Namespace:** `github.com/FranekJemiolo/Caelum-EO`  
+**Role:** Principal Distributed Systems Engineer  
+**Status:** Approved & Baseline Specification
 
 ---
 
-## 1. Executive Summary
+## 1. System Mission & Data Flow
+
 Project Caelum-EO delivers continuous, automated geospatial intelligence (GEOINT) by orchestrating open-source Earth Observation (EO) foundation models and deep computer vision networks over public Sentinel-1 (SAR) and Sentinel-2 (optical) satellite streams. The platform discovers, localizes, segments, and tracks infrastructure developments across targeted global geofences.
 
----
-
-## 2. End-to-End System Pipeline
-
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant CDSE as Copernicus Data Space (STAC)
-    participant Poller as STAC Ingestion Worker
-    participant Kafka as Kafka Broker (geoint-stac-ingest)
-    participant Consumer as Windowed ETL Worker
-    participant Prithvi as Prithvi-EO-2.0 Foundation Model
-    participant YOLO as YOLOv8-OBB Classifier
-    participant GeoSAM as GeoSAM Segmenter
-    participant DB as PostGIS Spatial Database
-    participant UI as Deck.gl React Frontend
-
-    loop Polling Interval (e.g. 1h)
-        Poller->>CDSE: Search items (bbox, datetime, collections, cloud_cover <= 20%)
-        CDSE-->>Poller: Return ItemCollection JSON (metadata, asset URLs)
-        Poller->>Kafka: Publish STACItemPayload (topic: geoint-stac-ingest)
+flowchart TD
+    subgraph Data Sources
+        CDSE[Copernicus Data Space Ecosystem<br/>STAC API Endpoint]
     end
 
-    Kafka->>Consumer: Consume item metadata payload
-    Consumer->>CDSE: Partial HTTP GET (Cloud Optimized GeoTIFF Range Requests)
-    Consumer->>Consumer: Co-register with Baseline T0, mask clouds/water, resample to 10m
-    Consumer->>Prithvi: Feed (2, 6, H, W) dual-temporal tensor
-    Prithvi-->>Consumer: Binary Change Probability Mask (anomalies)
-
-    alt Change Detected (> threshold)
-        Consumer->>YOLO: Pass cropped chip centered on anomaly
-        YOLO-->>Consumer: Oriented Bounding Box + Class (e.g. Radar_Dome, 0.94)
-        Consumer->>GeoSAM: Prompt with centroid & bbox
-        GeoSAM-->>Consumer: Precise boundary polygon (GeoJSON, EPSG:4326)
-        Consumer->>DB: INSERT into infrastructure_detections (geometry, class, confidence, metadata)
+    subgraph Phase A: Ingestion Firehose
+        Poller[STAC Ingestion Poller<br/>src/ingestion/stac_poller.py]
+        Kafka[(Apache Kafka<br/>Topic: geoint-stac-ingest)]
+        CDSE -->|pystac-client Metadata Query| Poller
+        Poller -->|Stream STAC JSON Payloads| Kafka
     end
 
-    UI->>DB: Spatial BBox Query & Temporal Range Filter
-    DB-->>UI: GeoJSON Vector FeatureCollection
-    UI->>UI: Render Deck.gl GeoJsonLayer with temporal animations
+    subgraph Phase B: Inference Engine
+        Detector[Inference Coordinator<br/>src/inference/detector.py]
+        Prithvi[NASA/IBM Prithvi-EO-2.0-300M<br/>Temporal MAE Backbone]
+        ChangeMask[Binary Change Mask<br/>1 = Structural Anomaly]
+        
+        Kafka -->|KafkaConsumer| Detector
+        Detector -->|Aligned 6-Band Temporal Tensors| Prithvi
+        Prithvi --> ChangeMask
+    end
+
+    subgraph Phase C: Vectorization & Storage
+        Vectorizer[Vectorization & Storage Pipeline<br/>src/inference/vectorizer.py]
+        YOLO[YOLOv8-OBB Classifier]
+        GeoSAM[GeoSAM Zero-Shot Perimeter Extractor]
+        DB[(PostgreSQL 15 + PostGIS 3.3<br/>Table: infrastructure_detections)]
+        
+        ChangeMask --> Vectorizer
+        Vectorizer --> YOLO
+        Vectorizer --> GeoSAM
+        YOLO -->|Class & Confidence| Vectorizer
+        GeoSAM -->|GeoJSON Polygon| Vectorizer
+        Vectorizer -->|psycopg2 SQL Batch INSERT| DB
+    end
+
+    subgraph Phase D: Visual Analyst Layer
+        API[FastAPI / REST Backend]
+        Deck[Deck.gl + React + MapLibre<br/>src/frontend/]
+        DB --> API
+        API -->|GeoJSON FeatureCollection| Deck
+    end
 ```
 
 ---
 
-## 3. Subsystem Breakdown
+## 2. Distributed Architecture & Component Responsibilities
 
-### 3.1. Ingestion Firehose (STAC ETL)
-- **Producer Role:** `services/ingestion/poll_worker.py` queries CDSE STAC using `pystac-client`. It constructs standardized `STACItemPayload` messages containing item IDs, bounding boxes, capture timestamps, cloud cover percentages, and asset URLs.
-- **Kafka Topic:** `geoint-stac-ingest` (Partitioned by geofence or MGRS tile to ensure deterministic temporal ordering).
-- **Decoupling Rationale:** Raw GeoTIFFs are 500MB - 1GB each. By deferring download until consumer processing and using HTTP Range requests (Cloud Optimized GeoTIFFs), ingestion throughput increases by 100x and avoids local disk exhaustion.
+### 2.1. Ingestion Poller (`src/ingestion/stac_poller.py`)
+- **Decoupled Firehose:** Queries the CDSE STAC endpoint (`https://catalogue.dataspace.copernicus.eu/stac`) using `pystac-client`.
+- **Zero-Download Ingestion Policy:** Raw Copernicus GeoTIFF files are 500MB - 1GB each. The ingestion poller avoids downloading rasters into memory, extracting only the metadata, bounding boxes, cloud cover, and asset download URLs for the 6 core optical bands (`B02`, `B03`, `B04`, `B8A`, `B11`, `B12`).
+- **Kafka Topic:** Emits strictly formatted JSON payloads into `geoint-stac-ingest`.
 
-### 3.2. Foundation Model Change Detection (Prithvi-EO-2.0-300M)
-- **Input Preprocessing:** Extracts 6 bands for two co-registered timestamps:
-  1. Band 2 (Blue - 490 nm)
-  2. Band 3 (Green - 560 nm)
-  3. Band 4 (Red - 665 nm)
-  4. Band 8A (Narrow NIR - 865 nm)
-  5. Band 11 (SWIR 1 - 1610 nm)
-  6. Band 12 (SWIR 2 - 2190 nm)
-- **Inference:** Pre-trained temporal Masked Autoencoder (MAE) backbone with MMSegmentation change detection head outputting a structural change probability mask.
+### 2.2. Inference Coordinator (`src/inference/detector.py`)
+- **Event-Driven Consumption:** Listens to `geoint-stac-ingest` as part of consumer group `caelum-inference-workers`.
+- **Temporal Alignment:** Coordinates pairs of scenes (Time $T_0$ baseline vs Time $T_1$ new acquisition).
+- **Prithvi-EO-2.0 Foundation Model:** Feeds preprocessed $(2, 6, H, W)$ tensors into the masked autoencoder backbone to produce a structural change probability array.
 
-### 3.3. Classification & Zero-Shot Vectorization (YOLOv8-OBB & GeoSAM)
-- **Cluster Extraction:** Connected component labeling on the Prithvi binary mask yields spatial bounding boxes.
-- **YOLOv8-OBB:** Oriented bounding box detection categorizes structures without axis-alignment constraints (crucial for airfields, storage tanks, trenches, logistics yards).
-- **GeoSAM:** Uses Segment Anything Model (SAM) with geospatial prompts (bounding box + positive point prompt) to extract polygon perimeters.
+### 2.3. Vectorization & PostGIS Persistence (`src/inference/vectorizer.py`)
+- **Morphological Bounding Box Extraction:** Labels connected components of change pixels to derive spatial bounding chips.
+- **Classification & Segmentation:** Dispatches chips to YOLOv8-OBB for tactical classification and GeoSAM for zero-shot boundary polygon extraction.
+- **Database Engine:** Pushes vectorized features to PostgreSQL 15 / PostGIS 3.3 via parameterized `psycopg2` transactions with spatial geometry validation.
 
-### 3.4. Spatial Data Store (PostGIS)
-- **Table:** `infrastructure_detections`
-- **Indexing:** `GIST (geometry)` index for sub-10ms bounding box queries; B-Tree index on `detection_date` and `classification`.
-
-### 3.5. WebGL Deck.gl Visualization
-- React application rendering Deck.gl `GeoJsonLayer` on top of MapLibre GL.
-- Features a temporal playback scrubber to visualize build-out timeline and categorical toggles.
+### 2.4. Deck.gl Presentation Tier (`src/frontend/`)
+- High-performance WebGL vector layer (`GeoJsonLayer`) on top of a dark-mode MapLibre basemap.
+- Real-time classification color encoding, confidence filtering, and temporal slider controls.
