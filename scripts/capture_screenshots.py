@@ -11,6 +11,7 @@ proof of the operational Caelum-EO system:
 
 import os
 import time
+
 from playwright.sync_api import sync_playwright
 
 output_dir = os.path.abspath("docs/screenshots")
@@ -80,4 +81,3 @@ with sync_playwright() as p:
     context.close()
     browser.close()
     print("\nAll 5 high-resolution proof screenshots successfully captured!")
-

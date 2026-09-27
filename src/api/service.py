@@ -669,5 +669,36 @@ class TriageService:
             message="Detection review committed successfully and audit trail logged.",
         )
 
+    def get_audit_records(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Retrieve recent verification audit log records for active learning."""
+        conn = self.get_connection()
+        if not conn:
+            return list(reversed(self._mock_audit_log))[:limit]
+
+        query = """
+            SELECT
+                detection_id,
+                previous_status,
+                new_status,
+                previous_class,
+                new_class,
+                reviewer_notes,
+                reviewed_by,
+                reviewed_at
+            FROM review_audit_log
+            ORDER BY reviewed_at DESC
+            LIMIT %s;
+        """
+        try:
+            with conn.cursor() as cur:
+                cur.execute(query, (limit,))
+                if cur.description:
+                    cols = [desc[0] for desc in cur.description]
+                    return [dict(zip(cols, row, strict=False)) for row in cur.fetchall()]
+                return []
+        except Exception as exc:
+            logger.warning("Failed querying review_audit_log table", error=str(exc))
+            return list(reversed(self._mock_audit_log))[:limit]
+
 
 triage_service = TriageService()

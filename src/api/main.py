@@ -192,6 +192,126 @@ def patch_detection_review(
     return result
 
 
+# ============================================================================
+# Version Two Endpoints: Multi-Modal, MVT Cache, Active Learning & Edge Sync
+# ============================================================================
+
+
+@app.get("/api/v1/multimodal/status")
+def get_multimodal_status(
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Return status and configuration of multi-modal SAR + Optical fusion engine."""
+    from src.etl.sar_ingest import MULTIMODAL_BANDS
+    from src.inference.prithvi_detector import get_optimal_device
+
+    return {
+        "status": "active",
+        "modalities": ["Copernicus Sentinel-2 Optical L2A", "Sentinel-1 C-Band SAR"],
+        "polarizations": ["VV", "VH"],
+        "coherence_supported": True,
+        "band_count": len(MULTIMODAL_BANDS),
+        "bands": MULTIMODAL_BANDS,
+        "fusion_architecture": "Cross-Attention Dynamic Cloud-Gated Transformer",
+        "optimal_device": str(get_optimal_device()),
+    }
+
+
+@app.get("/api/v1/tiles/mvt/{z}/{x}/{y}")
+def get_vector_tile(
+    z: int,
+    x: int,
+    y: int,
+    layer: str = Query("infrastructure_detections", description="Tile layer name"),
+) -> Response:
+    """Retrieve high-performance Mapbox Vector Tile (.pbf) with tier-1 caching."""
+    from src.api.tile_cache import tile_cache
+
+    cached = tile_cache.get_tile(layer, z, x, y)
+    if cached is None:
+        # Generate and cache tile
+        cached = tile_cache.generate_synthetic_mvt(layer, z, x, y)
+        tile_cache.set_tile(layer, z, x, y, cached)
+
+    etag = tile_cache.compute_etag(cached)
+    return Response(
+        content=cached,
+        media_type="application/x-protobuf",
+        headers={
+            "ETag": etag,
+            "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+            "Content-Type": "application/x-protobuf",
+        },
+    )
+
+
+@app.get("/api/v1/mlops/active-learning/status")
+def get_active_learning_status(
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Retrieve active learning metrics, LoRA status, and FP suppression rate."""
+    from dataclasses import asdict
+
+    from src.mlops.active_learning import lora_worker
+
+    return asdict(lora_worker.get_status())
+
+
+@app.post("/api/v1/mlops/active-learning/trigger")
+def trigger_active_learning_cycle(
+    iteration_tag: str = Query("v2.1", description="Model iteration tag"),
+    current_user: User = Depends(require_roles(["analyst", "admin"])),
+) -> Dict[str, Any]:
+    """Trigger automated LoRA fine-tuning cycle harvesting from review_audit_log."""
+    from dataclasses import asdict
+
+    from src.mlops.active_learning import harvest_engine, lora_worker
+
+    audit_records = triage_service.get_audit_records(limit=200)
+    manifest = harvest_engine.harvest_from_audit_records(audit_records)
+    new_status = lora_worker.train_lora_iteration(manifest, iteration_tag=iteration_tag)
+    return asdict(new_status)
+
+
+@app.get("/api/v1/edge/sync/status")
+def get_edge_sync_status(
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Retrieve tactical edge delta synchronizer telemetry and pending queues."""
+    from dataclasses import asdict
+
+    from src.edge.sync import edge_sync
+
+    return asdict(edge_sync.get_status())
+
+
+@app.post("/api/v1/edge/sync/push")
+def receive_edge_sync_batch(
+    sync_bundle: Dict[str, Any],
+    current_user: User = Depends(require_roles(["analyst", "admin"])),
+) -> Dict[str, Any]:
+    """Central HQ ingestion endpoint for receiving tactical edge sync bundles."""
+    from src.edge.sync import edge_sync
+
+    applied_deltas = edge_sync.receive_and_apply_batch(sync_bundle)
+    return {
+        "status": "success",
+        "accepted_count": len(applied_deltas),
+        "node_id": sync_bundle.get("node_id"),
+    }
+
+
+@app.get("/api/v1/citus/status")
+def get_citus_status(
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Retrieve Citus distributed spatial sharding status."""
+    from src.db.citus_sharding import CitusShardingManager
+
+    conn = triage_service.get_connection()
+    return CitusShardingManager.check_sharding_status(conn)
+
+
 if __name__ == "__main__":
     import uvicorn
 

@@ -110,9 +110,9 @@ class PrithviEOFoundationModel(nn.Module):
         Returns:
             Tuple of (t0_tensor, t1_tensor), each shaped (1, 6, H, W) and standardized.
         """
-        assert (
-            t0_raster.shape[0] == 6 and t1_raster.shape[0] == 6
-        ), f"Expected 6 spectral bands, got {t0_raster.shape[0]} and {t1_raster.shape[0]}"
+        assert t0_raster.shape[0] == 6 and t1_raster.shape[0] == 6, (
+            f"Expected 6 spectral bands, got {t0_raster.shape[0]} and {t1_raster.shape[0]}"
+        )
 
         t0_torch = torch.from_numpy(t0_raster).unsqueeze(0).float().to(self.device)
         t1_torch = torch.from_numpy(t1_raster).unsqueeze(0).float().to(self.device)

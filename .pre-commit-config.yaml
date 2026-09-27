@@ -1,37 +1,40 @@
 # Pre-commit configuration for Project Caelum-EO
-# Repository: github.com/FranekJemiolo/Caelum-EO
+# Venv management: uv  (https://docs.astral.sh/uv/)
+# Run:  uv run pre-commit run --all-files
 
 repos:
   # 1. Standard Hygiene Hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v4.6.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-json
+      - id: check-toml
       - id: check-added-large-files
-        args: ['--maxkb=10240']
+        args: ["--maxkb=10240"]
 
   # 2. Python Quality: Ruff (Linter & Formatter)
+  #    Uses the official hook which ships its own binary — no venv needed.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.4
+    rev: v0.4.10
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
-  # 3. Python Type Checking: mypy
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.9.0
+  # 3. Python Type Checking via uv run (uses the project .venv)
+  - repo: local
     hooks:
       - id: mypy
+        name: mypy (uv run)
+        entry: uv run mypy
+        language: system
+        types: [python]
         args: [--ignore-missing-imports]
-        files: ^(src/|tests/)
-        additional_dependencies:
-          - pydantic>=2.7.0
-          - types-requests
-          - types-PyYAML
+        files: ^(src|tests)/
+        pass_filenames: false
 
   # 4. Frontend Formatting: Prettier
   - repo: https://github.com/pre-commit/mirrors-prettier
@@ -39,9 +42,14 @@ repos:
     hooks:
       - id: prettier
         types_or: [json, markdown, css, ts, tsx]
-        exclude: ^(src/frontend/dist/|src/frontend/node_modules/|src/frontend/package-lock\.json)
+        exclude: >
+          (?x)^(
+            src/frontend/dist/|
+            src/frontend/node_modules/|
+            src/frontend/package-lock\.json
+          )
 
-  # 5. Frontend Linting: ESLint
+  # 5. Frontend Linting: ESLint (via uv-adjacent npm)
   - repo: local
     hooks:
       - id: frontend-eslint

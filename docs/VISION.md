@@ -1,21 +1,22 @@
 # Project Caelum-EO: Strategic Vision & Doctrine Document
 
-**Namespace:** `github.com/FranekJemiolo/Caelum-EO`  
-**Classification:** Strategic Defense Geospatial Intelligence (GEOINT) Doctrine  
-**Document Version:** 1.0.0 (Master Vision)  
+**Namespace:** `github.com/FranekJemiolo/Caelum-EO`
+**Classification:** Strategic Defense Geospatial Intelligence (GEOINT) Doctrine
+**Document Version:** 1.0.0 (Master Vision)
 
 ---
 
 ## 1. Operational Doctrine & Strategic Context
 
-In 21st-century peer and near-peer competition, national security depends on **persistent, automated, and sovereign awareness** of adversarial military infrastructure developments. 
+In 21st-century peer and near-peer competition, national security depends on **persistent, automated, and sovereign awareness** of adversarial military infrastructure developments.
 
 Traditional geospatial intelligence (GEOINT) workflows rely on manual photo-interpretation of commercial and national reconnaissance satellite imagery. This paradigm is fundamentally obsolete:
+
 - **Data Deluge:** Constellations like Copernicus Sentinel, Landsat, Maxar, and Planet downlink terabytes of raw pixel data hourly.
 - **Latency Vulnerability:** Human analyst triage queues introduce delays of days to weeks between an adversary breaking ground and strategic commanders receiving actionable target intelligence.
 - **Adversarial Camouflage & Weather Denial:** Adversaries exploit cloud cover, seasonal weather windows, and rapid construction methods to erect hardened facilities (radar domes, missile revetments, logistics staging bases, runway taxiways) undetected.
 
-**Project Caelum-EO** *(Caelum meaning 'the heavens / sky' in Latin)* was forged to eliminate this latency. It provides a fully autonomous, sovereign, zero-cloud GEOINT intelligence pipeline that monitors sovereign borders and strategic sectors, detects surface changes at the physical speed of spaceborne overpasses, categorizes tactical targets, and delivers high-priority alerts into military command and control systems.
+**Project Caelum-EO** _(Caelum meaning 'the heavens / sky' in Latin)_ was forged to eliminate this latency. It provides a fully autonomous, sovereign, zero-cloud GEOINT intelligence pipeline that monitors sovereign borders and strategic sectors, detects surface changes at the physical speed of spaceborne overpasses, categorizes tactical targets, and delivers high-priority alerts into military command and control systems.
 
 ---
 
@@ -86,14 +87,14 @@ Traditional geospatial intelligence (GEOINT) workflows rely on manual photo-inte
 
 Caelum-EO models categorize structural anomalies into six standardized military and industrial infrastructure classifications:
 
-| Infrastructure Class | Tactical Significance | Visual Signature | Typical Surface Area |
-| :--- | :--- | :--- | :--- |
-| **`RADAR_DOME`** | Air defense, early warning, SIGINT tracking | High dielectric return, circular geometry, spherical shadow | $500 - 3,000 \text{ m}^2$ |
-| **`RUNWAY_TAXIWAY`** | Forward airbase extension, UAV staging | High-aspect-ratio linear concrete slab, high spectral reflectance | $10,000 - 150,000 \text{ m}^2$ |
-| **`DEFENSE_REVETMENT`** | Fortified ordnance bunker, missile battery berm | Earth-bermed horseshoe or polygonal embankments | $2,000 - 15,000 \text{ m}^2$ |
-| **`LOGISTICS_DEPOT`** | Ammunition supply point, motor pool, railhead | Large rectangular footprint, heavy vehicle access tracks | $5,000 - 50,000 \text{ m}^2$ |
-| **`INDUSTRIAL_BUILDING`** | Defense manufacturing, dual-use assembly | Large warehouse envelope, HVAC / industrial roof infrastructure | $3,000 - 30,000 \text{ m}^2$ |
-| **`UNKNOWN_STRUCTURE`** | Uncategorized foundation excavation, new clearing | Soil disturbance, rectangular clearing, high change probability | Variable |
+| Infrastructure Class      | Tactical Significance                             | Visual Signature                                                  | Typical Surface Area           |
+| :------------------------ | :------------------------------------------------ | :---------------------------------------------------------------- | :----------------------------- |
+| **`RADAR_DOME`**          | Air defense, early warning, SIGINT tracking       | High dielectric return, circular geometry, spherical shadow       | $500 - 3,000 \text{ m}^2$      |
+| **`RUNWAY_TAXIWAY`**      | Forward airbase extension, UAV staging            | High-aspect-ratio linear concrete slab, high spectral reflectance | $10,000 - 150,000 \text{ m}^2$ |
+| **`DEFENSE_REVETMENT`**   | Fortified ordnance bunker, missile battery berm   | Earth-bermed horseshoe or polygonal embankments                   | $2,000 - 15,000 \text{ m}^2$   |
+| **`LOGISTICS_DEPOT`**     | Ammunition supply point, motor pool, railhead     | Large rectangular footprint, heavy vehicle access tracks          | $5,000 - 50,000 \text{ m}^2$   |
+| **`INDUSTRIAL_BUILDING`** | Defense manufacturing, dual-use assembly          | Large warehouse envelope, HVAC / industrial roof infrastructure   | $3,000 - 30,000 \text{ m}^2$   |
+| **`UNKNOWN_STRUCTURE`**   | Uncategorized foundation excavation, new clearing | Soil disturbance, rectangular clearing, high change probability   | Variable                       |
 
 ---
 
@@ -115,7 +116,7 @@ Caelum-EO models categorize structural anomalies into six standardized military 
 - **Phase 2 (Complete):** Windowed COG streaming ETL, SCL cloud masking, MinIO/S3 object store abstraction with local filesystem fallback.
 - **Phase 3 (Complete):** NASA/IBM Prithvi-EO-2.0 temporal change detection, YOLOv8-OBB categorization, single-pass vectorizer, PostGIS spatial database, and Deck.gl WebGL HUD with Carto Dark Matter basemap.
 - **Phase 4 (Complete):** Defense-grade OAuth2 JWT RBAC, Martin MVT vector tile streaming, TiTiler dynamic COG previews, SIEM webhook alerting (`P > 0.85`), automated raster retention pruner, and bare-metal production Docker packaging with NVIDIA GPU passthrough.
-- **Phase 5 (Version Two - Next Release):** 
+- **Phase 5 (Version Two - Next Release):**
   - Sentinel-1 SAR + Sentinel-2 optical multi-modal cross-attention fusion.
   - Horizontally sharded Citus PostGIS across MGRS grid zones ($50\text{M}+$ polygons).
   - Multi-node NVIDIA Triton Inference Server with GPUDirect Storage (GDS).

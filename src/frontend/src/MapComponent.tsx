@@ -15,6 +15,10 @@ import {
   Cpu,
   LogOut,
   ShieldCheck,
+  Activity,
+  Sparkles,
+  Share2,
+  Database,
 } from "lucide-react";
 
 import {
@@ -264,6 +268,35 @@ export default function MapComponent({
     null,
   );
   const [isHotlistOpen, setIsHotlistOpen] = useState<boolean>(true);
+
+  // Version Two State
+  const [v2Modality, setV2Modality] = useState<"optical" | "sar" | "fused">(
+    "optical",
+  );
+  const [fpSuppression, setFpSuppression] = useState<number>(84.6);
+  const [loraTriggering, setLoraTriggering] = useState<boolean>(false);
+  const [edgeSyncCount, setEdgeSyncCount] = useState<number>(18);
+
+  const handleTriggerLoRA = async () => {
+    setLoraTriggering(true);
+    try {
+      const res = await authFetch(
+        `${apiUrl}/api/v1/mlops/active-learning/trigger?iteration_tag=v2.1`,
+        { method: "POST" },
+        onLogout,
+      );
+      if (res && res.ok) {
+        const json = await res.json();
+        if (json.fp_suppression_rate) {
+          setFpSuppression(Math.round(json.fp_suppression_rate * 1000) / 10);
+        }
+      }
+    } catch (err) {
+      console.error("LoRA fine-tuning failed", err);
+    } finally {
+      setLoraTriggering(false);
+    }
+  };
 
   // Fetch live detections & zones
   useEffect(() => {
@@ -646,6 +679,83 @@ export default function MapComponent({
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             </div>
           )}
+        </div>
+
+        {/* Version Two Multi-Modal Sensor Switcher */}
+        <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-800">
+          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+            <span className="flex items-center gap-1 text-indigo-400">
+              <Sparkles size={11} /> V2 MULTI-MODAL SENSOR
+            </span>
+            <span className="text-[9px] text-slate-500 font-bold uppercase">
+              {v2Modality}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-1 bg-slate-900/90 p-1 rounded-lg border border-slate-800 text-[11px] font-mono">
+            <button
+              onClick={() => setV2Modality("optical")}
+              className={`py-1 rounded text-center transition-colors ${
+                v2Modality === "optical"
+                  ? "bg-cyan-500 text-slate-950 font-bold"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Optical
+            </button>
+            <button
+              onClick={() => setV2Modality("sar")}
+              className={`py-1 rounded text-center transition-colors ${
+                v2Modality === "sar"
+                  ? "bg-indigo-500 text-white font-bold"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              SAR Radar
+            </button>
+            <button
+              onClick={() => setV2Modality("fused")}
+              className={`py-1 rounded text-center transition-colors ${
+                v2Modality === "fused"
+                  ? "bg-purple-500 text-white font-bold"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Fused
+            </button>
+          </div>
+        </div>
+
+        {/* Version Two MLOps & Tactical Edge Telemetry */}
+        <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-800 text-[10px] font-mono">
+          <div className="flex items-center justify-between px-2 py-1.5 rounded bg-slate-900/70 border border-slate-800">
+            <span className="flex items-center gap-1.5 text-cyan-400">
+              <Activity size={12} />
+              <span>LoRA v2.1 Active</span>
+            </span>
+            <button
+              onClick={handleTriggerLoRA}
+              disabled={loraTriggering}
+              className="text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer"
+            >
+              {loraTriggering ? "Retraining..." : `FP: ${fpSuppression}%`}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between px-2 py-1.5 rounded bg-slate-900/70 border border-slate-800 text-slate-400">
+            <span className="flex items-center gap-1.5 text-emerald-400">
+              <Share2 size={12} />
+              <span>Tactical Mesh Sync</span>
+            </span>
+            <span className="text-slate-200">{edgeSyncCount} Deltas</span>
+          </div>
+
+          <div className="flex items-center justify-between px-2 py-1.5 rounded bg-slate-900/70 border border-slate-800 text-slate-400">
+            <span className="flex items-center gap-1.5 text-indigo-400">
+              <Database size={12} />
+              <span>Citus PostGIS</span>
+            </span>
+            <span className="text-slate-200">MGRS: 35UPB</span>
+          </div>
         </div>
 
         {/* Infrastructure Categories Filter */}

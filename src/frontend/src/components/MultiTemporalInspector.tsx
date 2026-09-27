@@ -21,6 +21,9 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
   const [showMask, setShowMask] = useState<boolean>(true);
   const [useTitiler, setUseTitiler] = useState<boolean>(true);
   const [titilerError, setTitilerError] = useState<boolean>(false);
+  const [modality, setModality] = useState<"optical" | "sar" | "fused">(
+    "optical",
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef<boolean>(false);
 
@@ -259,10 +262,52 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
               </button>
             </div>
 
-            <div className="text-xs font-mono text-slate-500">
-              Drag horizontal slider to compare temporal passes
+            {/* Version Two Multi-Modal Sensor Switcher */}
+            <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-lg border border-slate-800 text-xs font-mono">
+              <button
+                onClick={() => setModality("optical")}
+                className={`px-2 py-1 rounded transition-colors ${
+                  modality === "optical"
+                    ? "bg-cyan-500 text-slate-950 font-bold"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Optical RGB
+              </button>
+              <button
+                onClick={() => setModality("sar")}
+                className={`px-2 py-1 rounded transition-colors ${
+                  modality === "sar"
+                    ? "bg-indigo-500 text-white font-bold"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                SAR VV/VH
+              </button>
+              <button
+                onClick={() => setModality("fused")}
+                className={`px-2 py-1 rounded transition-colors ${
+                  modality === "fused"
+                    ? "bg-purple-500 text-white font-bold"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Cross-Attention Fused
+              </button>
             </div>
           </div>
+
+          {/* V2 Modality Badge */}
+          {modality !== "optical" && (
+            <div className="mt-2 text-[11px] font-mono text-indigo-400 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping" />
+              <span>
+                {modality === "sar"
+                  ? "SENTINEL-1 C-BAND SAR DUAL-POL (VV / VH) SPECKLE-FILTERED BACKSCATTER (SIGMA-0 dB)"
+                  : "PRITHVI-EO-2.0 CROSS-ATTENTION ATTENTION FUSED 8-CHANNEL TENSOR CUBE (OPTICAL + SAR)"}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -20,26 +20,33 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
+    # Geospatial
     "pystac-client>=0.7.6",
     "planetary-computer>=1.0.0",
-    "kafka-python>=2.0.2",
-    "pydantic>=2.7.0",
-    "pydantic-settings>=2.2.0",
     "rasterio>=1.3.9",
     "xarray>=2024.3.0",
     "shapely>=2.0.3",
     "geopandas>=0.14.3",
     "numpy>=1.26.0,<2.0.0",
+    "scipy>=1.11.0",
+    "python-dateutil>=2.9.0",
+    # Data / Messaging
+    "kafka-python>=2.0.2",
+    "psycopg2-binary>=2.9.9",
+    # API / Config
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "httpx>=0.27.0",
+    "requests>=2.31.0",
+    "python-jose[cryptography]>=3.3.0",
+    "bcrypt>=4.0.0",
+    "python-multipart>=0.0.9",
+    # Observability
     "structlog>=24.1.0",
     "tenacity>=8.2.3",
     "click>=8.1.7",
-    "requests>=2.31.0",
-    "fastapi>=0.110.0",
-    "uvicorn>=0.29.0",
-    "httpx>=0.27.0",
-    "python-jose[cryptography]>=3.3.0",
-    "bcrypt>=4.0.0",
-    "python-multipart>=0.0.9"
 ]
 
 [project.optional-dependencies]
@@ -48,16 +55,32 @@ dev = [
     "pytest-asyncio>=0.23.6",
     "pytest-mock>=3.14.0",
     "pytest-cov>=5.0.0",
-    "black>=24.3.0",
-    "ruff>=0.3.4",
-    "mypy>=1.9.0"
+    "ruff>=0.4.10",
+    "mypy>=1.9.0",
+    "types-requests",
+    "types-PyYAML",
+    "types-python-dateutil",
+]
+
+# PEP 735 / uv dependency groups (preferred over [tool.uv] dev-dependencies)
+[dependency-groups]
+dev = [
+    "pytest>=8.1.1",
+    "pytest-asyncio>=0.23.6",
+    "pytest-mock>=3.14.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.4.10",
+    "mypy>=1.9.0",
+    "types-requests",
+    "types-PyYAML",
+    "types-python-dateutil",
 ]
 ml = [
     "torch>=2.2.0",
     "torchvision>=0.17.0",
     "ultralytics>=8.1.0",
     "timm>=0.9.16",
-    "segment-anything>=1.0"
+    "segment-anything>=1.0",
 ]
 
 [project.urls]
@@ -65,6 +88,16 @@ Homepage = "https://github.com/FranekJemiolo/Caelum-EO"
 Repository = "https://github.com/FranekJemiolo/Caelum-EO.git"
 Issues = "https://github.com/FranekJemiolo/Caelum-EO/issues"
 
+# ---------------------------------------------------------------------------
+# uv
+# ---------------------------------------------------------------------------
+[tool.uv]
+# uv uses [dependency-groups] above; this section holds uv-specific settings only
+package = true
+
+# ---------------------------------------------------------------------------
+# Ruff
+# ---------------------------------------------------------------------------
 [tool.ruff]
 line-length = 100
 target-version = "py311"
@@ -77,13 +110,18 @@ ignore = ["E501", "B008"]
 quote-style = "double"
 indent-style = "space"
 
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
 [tool.mypy]
 python_version = "3.11"
 ignore_missing_imports = true
 warn_unused_ignores = false
 disallow_untyped_defs = false
 
-
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --import-mode=importlib"
@@ -91,5 +129,20 @@ pythonpath = ["."]
 testpaths = [
     "tests",
     "services/ingestion/tests",
-    "services/inference/tests"
+    "services/inference/tests",
+]
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/frontend/*", "*/migrations/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
 ]
