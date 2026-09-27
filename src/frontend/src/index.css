@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --bg-dark: #0a0d14;
   --bg-card: rgba(16, 22, 34, 0.85);
@@ -6,8 +10,8 @@
   --accent-blue: #4facfe;
   --text-primary: #f0f4fc;
   --text-secondary: #94a3b8;
-  --font-sans: 'Outfit', -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: "Outfit", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 }
 
 * {
@@ -16,7 +20,9 @@
   padding: 0;
 }
 
-body, html, #root {
+body,
+html,
+#root {
   width: 100%;
   height: 100%;
   overflow: hidden;
