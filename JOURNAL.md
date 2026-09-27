@@ -112,3 +112,14 @@
    - Tactically-styled temporal scrubber component with automated 3-day step animation playback.
    - Instant categorical filtering and minimum confidence slider.
    - Feature inspection drawer displaying sensor metadata, platform name, and intelligence notes.
+
+---
+
+## Entry 007 - Phase 2 Design Specification & Documentation Expansion
+*Date: September 27, 2026*
+
+### Problem & Rationale
+Expanding the architectural rigor of Project Caelum-EO to support a production-grade distributed pipeline. Detailed documentation must formalize:
+1. End-to-end data flow from Copernicus STAC API, Kafka event bus, GPU inference workers, PostGIS spatial store, and Deck.gl visual layer (`docs/ARCHITECTURE.md`).
+2. Exact PostGIS 3.3 / PostgreSQL 15 schema, `GIST` indexes, covering indices, and field constraints (`docs/DATA_MODEL.md`).
+3. Mathematical and tensor specification for `ibm-nasa-geospatial/Prithvi-EO-2.0-300M` masked autoencoder, 6-band radiometric standardization, and YOLOv8-OBB/GeoSAM perimeter extraction (`docs/ML_PIPELINE.md`).
