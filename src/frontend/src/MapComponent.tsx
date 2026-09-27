@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import DeckGL from "@deck.gl/react";
 import { GeoJsonLayer } from "@deck.gl/layers";
+import { MVTLayer } from "@deck.gl/geo-layers";
 import Map from "react-map-gl/maplibre";
 import {
   Play,
@@ -11,6 +12,7 @@ import {
   Flame,
   Eye,
   CheckSquare,
+  Cpu,
 } from "lucide-react";
 
 import {
@@ -223,8 +225,12 @@ const TIMELINE_MAX = new Date("2026-09-30T23:59:59Z").getTime();
 
 export default function MapComponent({
   apiUrl = "http://localhost:8000",
+  tileServerUrl = "http://localhost:3001",
+  titilerUrl = "http://localhost:8001",
 }: {
   apiUrl?: string;
+  tileServerUrl?: string;
+  titilerUrl?: string;
 }) {
   const [data, setData] =
     useState<DetectionFeatureCollection>(SEED_GEOINT_DATA);
@@ -233,6 +239,8 @@ export default function MapComponent({
     new Set(Object.keys(CLASSIFICATION_COLORS)),
   );
   const [showHotspots, setShowHotspots] = useState<boolean>(false);
+  const [useMVT, setUseMVT] = useState<boolean>(false);
+  const [martinAvailable] = useState<boolean>(true);
   const [scrubberTime, setScrubberTime] = useState<number>(TIMELINE_MAX);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
@@ -410,38 +418,71 @@ export default function MapComponent({
       );
     }
 
-    // 2. Primary Bounding Box & Polygon Extraction Layer
-    list.push(
-      new GeoJsonLayer({
-        id: "geoint-detections-layer",
-        data: { type: "FeatureCollection", features: filteredFeatures },
-        pickable: true,
-        stroked: true,
-        filled: true,
-        extruded: true,
-        wireframe: true,
-        lineWidthMinPixels: 2,
-        getElevation: (f: any) => (f.properties?.confidence || 0.5) * 80,
-        getFillColor: (f: any) => {
-          const cls = f.properties?.classification as InfrastructureClass;
-          const isSelected = selectedTarget?.id === f.id;
-          const base = CLASSIFICATION_COLORS[cls]?.rgb || [148, 163, 184];
-          return isSelected ? [255, 255, 255, 220] : [...base, 140];
-        },
-        getLineColor: (f: any) => {
-          const cls = f.properties?.classification as InfrastructureClass;
-          const isSelected = selectedTarget?.id === f.id;
-          const base = CLASSIFICATION_COLORS[cls]?.rgb || [148, 163, 184];
-          return isSelected ? [255, 255, 255, 255] : [...base, 255];
-        },
-        getLineWidth: (f: any) => (selectedTarget?.id === f.id ? 4 : 2),
-        onClick: (info: any) => {
-          if (info.object) {
-            handleSelectTarget(info.object);
-          }
-        },
-      }),
-    );
+    // 2. Primary Bounding Box & Polygon Layer (MVT Vector Tiles with GeoJSON Fallback)
+    if (useMVT && martinAvailable) {
+      list.push(
+        new MVTLayer({
+          id: "martin-mvt-layer",
+          data: `${tileServerUrl}/infrastructure_detections/{z}/{x}/{y}`,
+          pickable: true,
+          autoHighlight: true,
+          highlightColor: [0, 242, 254, 200],
+          getFillColor: (f: any) => {
+            const cls = (f.properties?.classification ||
+              "UNKNOWN_STRUCTURE") as InfrastructureClass;
+            const isSelected = selectedTarget?.id === f.id;
+            const base = CLASSIFICATION_COLORS[cls]?.rgb || [148, 163, 184];
+            return isSelected ? [255, 255, 255, 220] : [...base, 140];
+          },
+          getLineColor: (f: any) => {
+            const cls = (f.properties?.classification ||
+              "UNKNOWN_STRUCTURE") as InfrastructureClass;
+            const isSelected = selectedTarget?.id === f.id;
+            const base = CLASSIFICATION_COLORS[cls]?.rgb || [148, 163, 184];
+            return isSelected ? [255, 255, 255, 255] : [...base, 255];
+          },
+          getLineWidth: 2,
+          lineWidthMinPixels: 2,
+          onClick: (info: any) => {
+            if (info.object) {
+              handleSelectTarget(info.object);
+            }
+          },
+        }),
+      );
+    } else {
+      list.push(
+        new GeoJsonLayer({
+          id: "geoint-detections-layer",
+          data: { type: "FeatureCollection", features: filteredFeatures },
+          pickable: true,
+          stroked: true,
+          filled: true,
+          extruded: true,
+          wireframe: true,
+          lineWidthMinPixels: 2,
+          getElevation: (f: any) => (f.properties?.confidence || 0.5) * 80,
+          getFillColor: (f: any) => {
+            const cls = f.properties?.classification as InfrastructureClass;
+            const isSelected = selectedTarget?.id === f.id;
+            const base = CLASSIFICATION_COLORS[cls]?.rgb || [148, 163, 184];
+            return isSelected ? [255, 255, 255, 220] : [...base, 140];
+          },
+          getLineColor: (f: any) => {
+            const cls = f.properties?.classification as InfrastructureClass;
+            const isSelected = selectedTarget?.id === f.id;
+            const base = CLASSIFICATION_COLORS[cls]?.rgb || [148, 163, 184];
+            return isSelected ? [255, 255, 255, 255] : [...base, 255];
+          },
+          getLineWidth: (f: any) => (selectedTarget?.id === f.id ? 4 : 2),
+          onClick: (info: any) => {
+            if (info.object) {
+              handleSelectTarget(info.object);
+            }
+          },
+        }),
+      );
+    }
 
     return list;
   }, [
@@ -449,6 +490,9 @@ export default function MapComponent({
     selectedTarget,
     showHotspots,
     zones,
+    useMVT,
+    martinAvailable,
+    tileServerUrl,
     handleSelectTarget,
   ]);
 
@@ -525,19 +569,39 @@ export default function MapComponent({
           </div>
         </div>
 
-        {/* Dual Mode Layer Toggle */}
-        <div className="flex items-center gap-2 pt-1 border-t border-slate-800">
-          <button
-            onClick={() => setShowHotspots((prev) => !prev)}
-            className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors border ${
-              showHotspots
-                ? "bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.3)]"
-                : "bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200"
-            }`}
-          >
-            <Flame size={13} />
-            Zone Hotspots
-          </button>
+        {/* Dual Mode Layer & Vector Tile Toggle */}
+        <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-800">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHotspots((prev) => !prev)}
+              className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors border ${
+                showHotspots
+                  ? "bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.3)]"
+                  : "bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200"
+              }`}
+            >
+              <Flame size={13} />
+              Hotspots
+            </button>
+            <button
+              onClick={() => setUseMVT((prev) => !prev)}
+              title="Toggle Martin Mapbox Vector Tile (MVT) server for rendering 100k+ polygons"
+              className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors border ${
+                useMVT
+                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_12px_rgba(0,242,254,0.3)]"
+                  : "bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200"
+              }`}
+            >
+              <Cpu size={13} />
+              {useMVT ? "MVT Tiles" : "GeoJSON"}
+            </button>
+          </div>
+          {useMVT && (
+            <div className="text-[10px] font-mono text-cyan-400/80 px-1 flex items-center justify-between">
+              <span>TILE SERVER: MARTIN (PORT 3001)</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            </div>
+          )}
         </div>
 
         {/* Infrastructure Categories Filter */}
@@ -693,6 +757,7 @@ export default function MapComponent({
             setReviewTarget(target);
           }}
           apiUrl={apiUrl}
+          titilerUrl={titilerUrl}
         />
       )}
 

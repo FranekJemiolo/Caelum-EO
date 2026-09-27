@@ -151,6 +151,40 @@ services:
     networks:
       - caelum-net
 
+  # 7. High-Performance Vector Tile Server (Martin MVT)
+  martin:
+    image: maplibre/martin:latest
+    container_name: caelum-martin
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-caelum_user}:${POSTGRES_PASSWORD:-caelum_secure_password}@postgis:5432/${POSTGRES_DB:-caelum_geoint}
+    depends_on:
+      postgis:
+        condition: service_healthy
+    networks:
+      - caelum-net
+
+  # 8. Dynamic Raster Tile Server (TiTiler for COGs)
+  titiler:
+    image: ghcr.io/developmentseed/titiler:latest
+    container_name: caelum-titiler
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      AWS_S3_ENDPOINT: http://minio:9000
+      AWS_VIRTUAL_HOSTING: "FALSE"
+      CPL_VSIL_CURL_ALLOWED_EXTENSIONS: ".tif,.tiff"
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - caelum-net
+
 networks:
   caelum-net:
     driver: bridge

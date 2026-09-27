@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Layers, Sun, Cloud, Calendar, Shield } from "lucide-react";
+import { X, Layers, Sun, Cloud, Calendar, Shield, Radio } from "lucide-react";
 import { DetectionFeature } from "../types";
 
 interface MultiTemporalInspectorProps {
@@ -7,6 +7,7 @@ interface MultiTemporalInspectorProps {
   onClose: () => void;
   onOpenReview: (feature: DetectionFeature) => void;
   apiUrl?: string;
+  titilerUrl?: string;
 }
 
 export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
@@ -14,9 +15,12 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
   onClose,
   onOpenReview,
   apiUrl = "http://localhost:8000",
+  titilerUrl = "http://localhost:8001",
 }) => {
   const [sliderPos, setSliderPos] = useState<number>(50); // Percentage 0 - 100
   const [showMask, setShowMask] = useState<boolean>(true);
+  const [useTitiler, setUseTitiler] = useState<boolean>(true);
+  const [titilerError, setTitilerError] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef<boolean>(false);
 
@@ -36,9 +40,37 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
 
   const props = feature.properties;
   const detId = feature.id;
-  const t0Url = `${apiUrl}/api/v1/detections/${detId}/imagery/t0`;
-  const t1Url = `${apiUrl}/api/v1/detections/${detId}/imagery/t1`;
+  const staticT0Url = `${apiUrl}/api/v1/detections/${detId}/imagery/t0`;
+  const staticT1Url = `${apiUrl}/api/v1/detections/${detId}/imagery/t1`;
   const maskUrl = `${apiUrl}/api/v1/detections/${detId}/imagery/mask`;
+
+  // Compute dynamic TiTiler COG stream URLs if COG URI exists or dynamically crop via TiTiler
+  const coords = feature.geometry?.coordinates?.[0] || [];
+  const minX = coords.length ? Math.min(...coords.map((c) => c[0])) : 0;
+  const minY = coords.length ? Math.min(...coords.map((c) => c[1])) : 0;
+  const maxX = coords.length ? Math.max(...coords.map((c) => c[0])) : 0;
+  const maxY = coords.length ? Math.max(...coords.map((c) => c[1])) : 0;
+
+  const cogSourceT0 =
+    props.stac_metadata?.baseline_cog ||
+    `http://minio:9000/caelum-raw/sentinel2_t0_${detId}.tif`;
+  const cogSourceT1 =
+    props.stac_metadata?.detection_cog ||
+    `http://minio:9000/caelum-raw/sentinel2_t1_${detId}.tif`;
+
+  const titilerT0Url = `${titilerUrl}/cog/crop/${minX.toFixed(
+    4,
+  )},${minY.toFixed(4)},${maxX.toFixed(4)},${maxY.toFixed(
+    4,
+  )}.png?url=${encodeURIComponent(cogSourceT0)}`;
+  const titilerT1Url = `${titilerUrl}/cog/crop/${minX.toFixed(
+    4,
+  )},${minY.toFixed(4)},${maxX.toFixed(4)},${maxY.toFixed(
+    4,
+  )}.png?url=${encodeURIComponent(cogSourceT1)}`;
+
+  const activeT0Url = useTitiler && !titilerError ? titilerT0Url : staticT0Url;
+  const activeT1Url = useTitiler && !titilerError ? titilerT1Url : staticT1Url;
 
   const handlePointerDown = () => {
     isDragging.current = true;
@@ -137,8 +169,13 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
           >
             {/* T1 Post-Change Satellite Image (Underneath) */}
             <img
-              src={t1Url}
+              src={activeT1Url}
               alt="T1 Monitoring Pass"
+              onError={() => {
+                if (useTitiler && !titilerError) {
+                  setTitilerError(true);
+                }
+              }}
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
             />
 
@@ -157,8 +194,13 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
               style={{ width: `${sliderPos}%` }}
             >
               <img
-                src={t0Url}
+                src={activeT0Url}
                 alt="T0 Baseline Pass"
+                onError={() => {
+                  if (useTitiler && !titilerError) {
+                    setTitilerError(true);
+                  }
+                }}
                 className="absolute inset-0 w-full h-full object-cover max-w-none pointer-events-none"
                 style={{ width: containerRef.current?.clientWidth || "100%" }}
               />
@@ -184,7 +226,7 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
           </div>
 
           {/* Interactive Controls Bar */}
-          <div className="mt-4 flex items-center justify-between w-full max-w-2xl px-2">
+          <div className="mt-4 flex flex-wrap items-center justify-between w-full max-w-2xl px-2 gap-3">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowMask((prev) => !prev)}
@@ -196,6 +238,24 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
               >
                 <Layers size={13} />
                 Mask Overlay (Key: M)
+              </button>
+
+              <button
+                onClick={() => {
+                  setTitilerError(false);
+                  setUseTitiler((prev) => !prev);
+                }}
+                title="Toggle dynamic Cloud-Optimized GeoTIFF raster stream from TiTiler vs static chip"
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold border transition-colors flex items-center gap-1.5 ${
+                  useTitiler && !titilerError
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                    : "bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200"
+                }`}
+              >
+                <Radio size={13} />
+                {useTitiler && !titilerError
+                  ? "TiTiler COG Stream"
+                  : "Static Chip Cache"}
               </button>
             </div>
 
