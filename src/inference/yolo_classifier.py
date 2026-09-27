@@ -13,10 +13,11 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 """
 
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Tuple
+
 import numpy as np
-from pydantic import BaseModel
 import structlog
+from pydantic import BaseModel
 
 logger = structlog.get_logger(__name__)
 
@@ -26,7 +27,7 @@ VALID_CLASSES = [
     "RADAR_DOME",
     "DEFENSE_REVETMENT",
     "INDUSTRIAL_BUILDING",
-    "UNKNOWN_STRUCTURE"
+    "UNKNOWN_STRUCTURE",
 ]
 
 
@@ -41,7 +42,9 @@ class ClassificationResult(BaseModel):
 class YOLOInfrastructureClassifier:
     """Classifies localized imagery chips into tactical target categories."""
 
-    def __init__(self, weights_path: str = "weights/yolov8_obb_geoint.pt", conf_threshold: float = 0.50):
+    def __init__(
+        self, weights_path: str = "weights/yolov8_obb_geoint.pt", conf_threshold: float = 0.50
+    ):
         self.weights_path = weights_path
         self.conf_threshold = conf_threshold
         self.model = self._load_yolo()
@@ -51,10 +54,14 @@ class YOLOInfrastructureClassifier:
         if os.path.exists(self.weights_path):
             try:
                 from ultralytics import YOLO
+
                 logger.info("Loading YOLOv8 weights checkpoint", weights=self.weights_path)
                 return YOLO(self.weights_path)
             except Exception as exc:
-                logger.warning("Failed loading Ultralytics YOLO; using morphological classifier", error=str(exc))
+                logger.warning(
+                    "Failed loading Ultralytics YOLO; using morphological classifier",
+                    error=str(exc),
+                )
         return None
 
     def classify_cluster(
@@ -62,7 +69,7 @@ class YOLOInfrastructureClassifier:
         chip: np.ndarray,
         bbox: Tuple[int, int, int, int],
         pixel_count: int,
-        mean_anomaly_prob: float = 0.85
+        mean_anomaly_prob: float = 0.85,
     ) -> ClassificationResult:
         """Classify infrastructure from image chip and spatial geometry."""
         min_r, min_c, max_r, max_c = bbox
@@ -87,10 +94,12 @@ class YOLOInfrastructureClassifier:
                             confidence=round(conf, 4),
                             bbox=bbox,
                             aspect_ratio=round(aspect_ratio, 2),
-                            area_pixels=pixel_count
+                            area_pixels=pixel_count,
                         )
             except Exception as exc:
-                logger.debug("YOLO forward pass exception, using morphological rules", error=str(exc))
+                logger.debug(
+                    "YOLO forward pass exception, using morphological rules", error=str(exc)
+                )
 
         # 2. Heuristic morphological classifier (deterministic and robust)
         # Elongated, high-pixel count -> Runway or Taxiway
@@ -122,5 +131,5 @@ class YOLOInfrastructureClassifier:
             confidence=round(confidence, 4),
             bbox=bbox,
             aspect_ratio=round(aspect_ratio, 2),
-            area_pixels=pixel_count
+            area_pixels=pixel_count,
         )

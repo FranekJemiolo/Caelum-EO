@@ -33,15 +33,15 @@ CREATE TABLE IF NOT EXISTS infrastructure_detections (
 );
 
 -- Spatial GIST Index for bounding box tile lookups
-CREATE INDEX IF NOT EXISTS idx_infra_detections_geometry 
+CREATE INDEX IF NOT EXISTS idx_infra_detections_geometry
     ON infrastructure_detections USING GIST (geometry);
 
 -- Temporal B-Tree Index for scrubber range filtering
-CREATE INDEX IF NOT EXISTS idx_infra_detections_date 
+CREATE INDEX IF NOT EXISTS idx_infra_detections_date
     ON infrastructure_detections (detection_date);
 
 -- Categorical Index for layer visibility filtering
-CREATE INDEX IF NOT EXISTS idx_infra_detections_classification 
+CREATE INDEX IF NOT EXISTS idx_infra_detections_classification
     ON infrastructure_detections (classification);
 
 -- Multi-column composite index for optimized spatial-temporal queries
@@ -51,7 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_infra_detections_date_geom
 
 -- Seed Initial Strategic GEOINT Intelligence (Suwalki Gap & Strategic Zones)
 INSERT INTO infrastructure_detections (id, geometry, classification, confidence, detection_date, source_imagery)
-VALUES 
+VALUES
     (
         'a1b2c3d4-e5f6-47a8-b901-23456789abcd',
         ST_GeomFromText('POLYGON((23.1500 54.1200, 23.1550 54.1200, 23.1550 54.1250, 23.1500 54.1250, 23.1500 54.1200))', 4326),

@@ -2,12 +2,13 @@
 
 import numpy as np
 import pytest
+
+from services.inference.cluster_extractor import AnomalyCluster, SpatialClusterExtractor
 from services.inference.config import ModelSettings
-from services.inference.prithvi_detector import PrithviChangeDetector
-from services.inference.cluster_extractor import SpatialClusterExtractor, AnomalyCluster
-from services.inference.yolo_classifier import YOLOInfrastructureClassifier
 from services.inference.geosam_vectorizer import GeoSAMVectorizer
 from services.inference.pipeline import GEOINTInferencePipeline
+from services.inference.prithvi_detector import PrithviChangeDetector
+from services.inference.yolo_classifier import YOLOInfrastructureClassifier
 
 
 @pytest.fixture
@@ -65,7 +66,7 @@ def test_yolo_classifier():
         geo_bbox=[20.2, 50.2, 20.3, 50.3],
         geo_centroid=[20.25, 50.25],
         pixel_count=36,
-        mean_confidence=0.9
+        mean_confidence=0.9,
     )
     chip = np.ones((6, 32, 32), dtype=np.float32)
 
@@ -84,7 +85,7 @@ def test_geosam_vectorizer():
         geo_bbox=[20.2, 50.2, 20.3, 50.3],
         geo_centroid=[20.25, 50.25],
         pixel_count=100,
-        mean_confidence=0.92
+        mean_confidence=0.92,
     )
     chip = np.ones((6, 32, 32), dtype=np.float32)
 
@@ -93,7 +94,7 @@ def test_geosam_vectorizer():
         cluster=cluster,
         offset_row_col=(10, 10),
         geo_bounds=[20.0, 50.0, 21.0, 51.0],
-        full_raster_shape=(64, 64)
+        full_raster_shape=(64, 64),
     )
 
     assert polygon["type"] == "Polygon"
@@ -111,7 +112,7 @@ def test_end_to_end_inference_pipeline(synthetic_temporal_pair):
         temporal_stack=synthetic_temporal_pair,
         geo_bounds=geo_bounds,
         detection_date="2026-09-27T12:00:00Z",
-        source_metadata={"scene_id": "TEST_SCENE_001"}
+        source_metadata={"scene_id": "TEST_SCENE_001"},
     )
 
     # Should find at least one detection corresponding to the center anomaly

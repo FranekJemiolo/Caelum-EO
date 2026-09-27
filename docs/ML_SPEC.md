@@ -1,7 +1,7 @@
 # Project Caelum-EO: Machine Learning & Foundation Model Specification
 
-**Repository Namespace:** `github.com/FranekJemiolo/Caelum-EO`  
-**Primary Foundation Model:** `ibm-nasa-geospatial/Prithvi-EO-2.0-300M`  
+**Repository Namespace:** `github.com/FranekJemiolo/Caelum-EO`
+**Primary Foundation Model:** `ibm-nasa-geospatial/Prithvi-EO-2.0-300M`
 **Secondary Detectors:** YOLOv8-OBB & GeoSAM
 
 ---
@@ -45,14 +45,17 @@
 ## 2. Tensor Layout & Band Normalization
 
 ### 2.1. Tensor Dimensions
+
 Prithvi-EO-2.0 is designed as a temporal 3D Vision Transformer Masked Autoencoder. The input tensor is formatted as:
 $$\mathbf{X} \in \mathbb{R}^{B \times C \times T \times H \times W}$$
+
 - **$B$ (Batch Size):** Typically 1 during localized inference.
 - **$C$ (Channels):** Exactly 6 Sentinel-2 optical bands.
 - **$T$ (Time steps):** Exactly 2 ($T_0$ baseline reference, $T_1$ monitoring observation).
 - **$H, W$ (Spatial Dimensions):** Multiples of 16 (default 256 or 512).
 
 ### 2.2. Band Index Mapping
+
 1. `Channel 0`: `B02` (Blue - 490 nm)
 2. `Channel 1`: `B03` (Green - 560 nm)
 3. `Channel 2`: `B04` (Red - 665 nm)
@@ -61,7 +64,9 @@ $$\mathbf{X} \in \mathbb{R}^{B \times C \times T \times H \times W}$$
 6. `Channel 5`: `B12` (SWIR 2 - 2190 nm)
 
 ### 2.3. Radiometric Standardization
+
 Input pixel values are converted from Level-2A surface reflectance integers ($0 - 10,000$) to float32 $[0.0, 1.0]$, and standardized using Copernicus Sentinel-2 L2A empirical stats:
+
 - **Means:** $\mu = [0.134, 0.141, 0.158, 0.285, 0.178, 0.126]$
 - **Std Devs:** $\sigma = [0.082, 0.076, 0.088, 0.124, 0.091, 0.078]$
 
@@ -87,6 +92,7 @@ $$\mathbf{X}_{norm} = \frac{\mathbf{X} - \mu}{\sigma}$$
 ## 4. Secondary Detectors: YOLOv8-OBB & GeoSAM
 
 ### 4.1. YOLOv8-OBB (Oriented Bounding Boxes)
+
 - Categorizes anomalous clusters into tactical target classes:
   - `LOGISTICS_DEPOT`
   - `RUNWAY_TAXIWAY`
@@ -97,6 +103,7 @@ $$\mathbf{X}_{norm} = \frac{\mathbf{X} - \mu}{\sigma}$$
 - Predicts oriented bounding box parameters $(c_x, c_y, w, h, \theta)$.
 
 ### 4.2. GeoSAM Zero-Shot Perimeter Vectorization
+
 - Prompted by the centroid and bounding box from Stage 2a.
 - Segments crisp roofline contours.
 - Applies Douglas-Peucker simplification ($\epsilon = 0.00002^\circ \approx 2\text{m}$) and validates polygon geometry (`shapely.validation.make_valid`).

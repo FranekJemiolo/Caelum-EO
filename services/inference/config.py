@@ -3,18 +3,15 @@
 Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 """
 
-from typing import List, Tuple
-from pydantic import BaseModel, Field
+from typing import List
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ModelSettings(BaseSettings):
     """Configuration for Prithvi-EO foundation model, YOLOv8-OBB, and GeoSAM."""
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Device selection (cuda, mps, or cpu)
     device: str = "cpu"
@@ -41,7 +38,7 @@ class ModelSettings(BaseSettings):
         "Hardened_Shelter",
         "Naval_Pier_Berth",
         "Fuel_Storage_Tank",
-        "Vehicle_Staging_Area"
+        "Vehicle_Staging_Area",
     ]
 
     # Stage 2b: GeoSAM Segmenter

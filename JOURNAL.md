@@ -1,11 +1,12 @@
 # Engineering Journal: Project Caelum-EO
 
-**Project Namespace:** `github.com/FranekJemiolo/Caelum-EO`  
+**Project Namespace:** `github.com/FranekJemiolo/Caelum-EO`
 **Target:** Automated Geospatial Intelligence (GEOINT) Infrastructure Detection & Mapping Pipeline
 
 ---
 
 ## [2026-09-27] - Core Architecture & Local-First Ingestion Scaffold
+
 - **Context:** An end-to-end GEOINT pipeline is needed to continuously detect structural build-out across satellite overpasses (Sentinel-2 Level-2A and Sentinel-1 SAR), co-register scenes, and extract vector intelligence for analysts without network bottlenecks.
 - **Alternatives Considered:** Downloading full 1GB `.SAFE` zip archives into local storage vs. on-demand streaming windowed sub-tile reads via GDAL `/vsicurl/` range requests.
 - **Decision & Rationale:** Adopted decoupled metadata-first ingestion. Polling workers push lightweight JSON STAC metadata payloads to Kafka (`geoint-stac-ingest`), and raster processing workers perform windowed HTTP Range requests directly on Cloud-Optimized GeoTIFFs (COGs).
@@ -14,6 +15,7 @@
 ---
 
 ## [2026-09-27] - Python Environment Management with uv
+
 - **Context:** Geospatial and deep learning libraries (`rasterio`, `shapely`, `torch`, `pystac-client`) require complex C/C++ bindings (GDAL, GEOS, PROJ) that often cause dependency resolution conflicts in standard `pip` or slow conda environments.
 - **Alternatives Considered:** Miniconda/Conda environments vs. standard Python virtual environments vs. astral-sh `uv`.
 - **Decision & Rationale:** Selected `uv` for local virtual environment and package management. `uv` installs binary wheels and resolves complex geospatial stacks deterministically in milliseconds.
@@ -22,6 +24,7 @@
 ---
 
 ## [2026-09-27] - NASA/IBM Prithvi-EO-2.0 Foundation Model Architecture
+
 - **Context:** Classical optical change detection (e.g., NDVI differencing or basic pixel subtraction) produces excessive false positives caused by sun angle variance, cloud shadows, and seasonal crop cycles.
 - **Alternatives Considered:** Classical edge detection / differencing vs. ResNet-based Siamese networks vs. Foundation Model (`ibm-nasa-geospatial/Prithvi-EO-2.0-300M`).
 - **Decision & Rationale:** Selected NASA/IBM Prithvi-EO-2.0-300M, a 3D temporal Masked Autoencoder (MAE) Vision Transformer pre-trained across multi-temporal Copernicus Harmonized Landsat-Sentinel data. Paired with a temporal feature difference fusion head `Concat([F0, F1, |F1 - F0|])` and a deterministic spectral-distance fallback for resource-constrained or offline CPU environments.
@@ -30,6 +33,7 @@
 ---
 
 ## [2026-09-27] - Two-Stage Vectorization (YOLOv8-OBB & GeoSAM)
+
 - **Context:** Foundation model change masks output low-resolution pixel probability arrays. Converting these directly to raw contours results in jagged, bloated vector geometries without semantic identification.
 - **Alternatives Considered:** Simple marching squares contour tracing vs. dual-stage classification (YOLOv8-OBB) and zero-shot perimeter segmentation (GeoSAM).
 - **Decision & Rationale:** Decoupled detection into Stage 2a (YOLOv8-OBB for oriented bounding box classification of runways, depots, radar domes) and Stage 2b (GeoSAM for prompt-driven roofline extraction with Douglas-Peucker topological simplification).
@@ -38,6 +42,7 @@
 ---
 
 ## [2026-09-27] - PostGIS 15 Database Schema & Generated Geodesic Area
+
 - **Context:** Analysts require sub-10ms spatial queries across bounding boxes and time-series sliders, along with physical ground area measurements without calculating geodesics in Python on every query.
 - **Alternatives Considered:** GeoJSON storage in MongoDB vs. flat spatial files vs. PostgreSQL with PostGIS extension.
 - **Decision & Rationale:** Implemented PostgreSQL 15 with PostGIS 3.3. Configured `area_sq_meters` as a generated stored column (`ST_Area(geometry::geography)`), built an explicit `GIST` spatial index, and added a descending temporal index on `detection_timestamp`.
@@ -46,6 +51,7 @@
 ---
 
 ## [2026-09-27] - Storage Topology & MinIO Multi-Bucket Design
+
 - **Context:** Scalable data lifecycles require isolating transient raw GeoTIFF chips, normalized intermediate tensor arrays, and analyst-facing cropped imagery.
 - **Alternatives Considered:** Single shared local directory vs. three-bucket MinIO/S3 object storage topology (`caelum-raw`, `caelum-interim`, `caelum-chips`).
 - **Decision & Rationale:** Established a three-tier object storage topology using MinIO locally and S3 in the cloud. Raw windowed rasters are cached in `caelum-raw`, multi-temporal 6-band tensor cubes are queued in `caelum-interim`, and verification chips are indexed in `caelum-chips`.
@@ -54,6 +60,7 @@
 ---
 
 ## [2026-09-27] - Phase 2: Local Storage, Synthetic Data & Streaming ETL Engine
+
 - **Context:** Developers must be able to run and test the complete satellite ETL flow locally without connecting to external cloud services or needing Copernicus portal credentials.
 - **Alternatives Considered:** Downloading live test scenes from the internet vs. generating deterministic synthetic multi-band GeoTIFF pairs with EPSG:4326 metadata.
 - **Decision & Rationale:** Implemented `scripts/generate_mock_data.py` to synthesize co-registered T0/T1 scenes with authentic reflectance values for 6 optical bands and SCL. Created `src/etl/storage.py` providing MinIO/S3 object store abstraction with local filesystem fallback, `src/etl/cdse_client.py` with offline mock fallback, and `src/etl/raster_processor.py` for bilinear resampling and SCL cloud masking.
@@ -62,6 +69,7 @@
 ---
 
 ## [2026-09-27] - Phase 3: Multi-Stage ML Inference, Polygonization & PostGIS Persistence
+
 - **Context:** An end-to-end integration is required connecting dual-temporal image cubes to foundation model inference, oriented classification, and spatial database persistence with geodesic measurements.
 - **Alternatives Considered:** Raster storage only vs. vector polygonization directly committed to PostGIS.
 - **Decision & Rationale:** Implemented `src/inference/prithvi_detector.py` with dynamic compute device negotiation (CUDA/MPS/CPU) and difference head, `src/inference/yolo_classifier.py` mapping detections to the PostGIS `infrastructure_class` enum, and `src/inference/vectorizer.py` extracting affine-projected GeoJSON polygons (`rasterio.features.shapes`) with `psycopg2` parameterized batch commits.
@@ -70,8 +78,35 @@
 ---
 
 ## [2026-09-27] - Phase 4: Deck.gl WebGL Temporal Intelligence Map & Local Bootstrap Orchestration
+
 - **Context:** GEOINT analysts require an interactive, GPU-accelerated tactical map to step through time-series satellite detections, inspect structural polygons color-coded by military/civil classification, examine geodesic surface footprints, and boot the entire pipeline locally with a single command.
 - **Alternatives Considered:** 2D Leaflet raster tiles vs. Mapbox GL JS with proprietary tokens vs. Deck.gl WebGL + MapLibre GL with open Dark Matter vector basemaps.
 - **Decision & Rationale:** Implemented Deck.gl `GeoJsonLayer` over Carto Dark Matter via MapLibre GL. Created dynamic classification color palettes mapping directly to the PostGIS `infrastructure_class` enum (Runway: Orange, Radar: Red, Depot: Yellow, Revetment: Crimson, Industrial: Purple, Unknown: Slate), a temporal time-scrubber with automated playback stepping through acquisition timestamps, an interactive Target Dossier drawer, and `scripts/run_local.sh` automating data generation, Docker orchestration (PostGIS, MinIO, Redpanda), database migration, ML inference, and WebGL frontend initialization.
 - **Impact:** Delivers responsive 60fps WebGL vector visualization locally out of the box with zero external tokens or cloud dependencies.
 
+---
+
+## [2026-09-27] - Quality Tooling & Automated CI/CD Gates (Ruff, mypy, Prettier, ESLint)
+
+- **Context:** Heterogeneous full-stack geospatial codebases (Python/C++ bindings for GDAL/PyTorch alongside TypeScript/WebGL) frequently suffer from code divergence, import ordering regressions, and subtle runtime type errors.
+- **Alternatives Considered:** Flake8 + Black + isort vs. modern unified toolchains (`ruff`, `mypy`, `prettier`, and `eslint`).
+- **Decision & Rationale:** Standardized on `ruff` for ultra-fast linting and formatting (sub-millisecond execution with rules `F`, `E`, `W`, `I`, `B`), `mypy` with strict typing on `src/` and `tests/`, `prettier` for markdown/CSS/JSON, and `eslint` flat config for TypeScript in `src/frontend/`. Wrapped in `.pre-commit-config.yaml` and GitHub Actions CI matrix with PostGIS and MinIO service containers.
+- **Impact:** Guarantees 100% automated formatting and typing enforcement across both local environments and CI pipelines without developer friction.
+
+---
+
+## [2026-09-27] - Spatial Zone Aggregation Architecture & Priority Scoring
+
+- **Context:** GEOINT commanders require rapid macro-level visibility into surveillance sectors (e.g. Suwalki Gap Corridor) to identify construction surges and queue critical targets for human verification without querying raw polygon tables repeatedly.
+- **Alternatives Considered:** Client-side polygon-in-polygon spatial calculations in JavaScript vs. spatial JOIN in PostgreSQL/PostGIS.
+- **Decision & Rationale:** Designed a high-performance spatial JOIN between `geographic_zones` and `infrastructure_detections` utilizing the GIST spatial index (`idx_zones_boundary`). Implemented dynamic priority scoring weighting infrastructure severity ($40\%$), zone threat posture ($35\%$), and model confidence ($25\%$). Added an in-memory repository fallback ensuring the API operates seamlessly even when disconnected from a live PostGIS instance.
+- **Impact:** Provides sub-15ms zone summaries with classification breakdowns and automated queue ranking for critical military targets.
+
+---
+
+## [2026-09-27] - Human-in-the-Loop (HITL) Triage State Model & Keyboard Navigation
+
+- **Context:** AI foundation models can produce false positives from seasonal agricultural activity or misclassify specialized structures (e.g. revetments as logistics warehouses). Analysts need an ergonomic, rapid verification workflow.
+- **Alternatives Considered:** Traditional pagination forms with reload vs. reactive split-screen swipe comparison with optimistic state updates and hotkeys.
+- **Decision & Rationale:** Developed a reactive state model with optimistic UI updates in React 18. Implemented a horizontal swipe comparison inspector for $T_0$ vs $T_1$, instant AI mask toggle (`M`), and keyboard shortcuts (`V` for verify, `F` for false positive, `Space` for next queue item). All actions commit to `PATCH /api/v1/detections/:id/review` and persist an immutable record into `review_audit_log`.
+- **Impact:** Dramatically accelerates analyst verification throughput while building an auditable dataset for downstream model fine-tuning.

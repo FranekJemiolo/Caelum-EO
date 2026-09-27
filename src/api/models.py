@@ -1,7 +1,8 @@
 """Pydantic Models and Enums for Caelum-EO Triage & Analytical APIs."""
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -23,6 +24,7 @@ class ReviewStatus(str, Enum):
 
 class ReviewPayload(BaseModel):
     """Payload submitted during Human-in-the-Loop reclassification and triage."""
+
     review_status: ReviewStatus
     verified_class: Optional[InfrastructureClass] = None
     reviewer_notes: Optional[str] = Field(None, max_length=2000)
@@ -42,6 +44,7 @@ class ReviewResponse(BaseModel):
 
 class ZoneSummary(BaseModel):
     """Aggregated geospatial metrics for strategic surveillance zones."""
+
     id: str
     name: str
     alert_level: str
@@ -55,6 +58,7 @@ class ZoneSummary(BaseModel):
 
 class ImageryResponse(BaseModel):
     """Satellite image chip references for multi-temporal inspection."""
+
     detection_id: str
     t0_image_url: str
     t1_image_url: str

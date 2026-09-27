@@ -10,6 +10,7 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 
 import os
 from typing import Optional, Tuple
+
 import numpy as np
 import structlog
 import torch
@@ -45,7 +46,7 @@ class PrithviChangeDetectionHead(nn.Module):
             nn.GELU(),
             nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, padding=1),
             nn.BatchNorm2d(hidden_dim),
-            nn.GELU()
+            nn.GELU(),
         )
         self.fusion = nn.Sequential(
             nn.Conv2d(hidden_dim * 3, hidden_dim, kernel_size=3, padding=1),
@@ -54,7 +55,7 @@ class PrithviChangeDetectionHead(nn.Module):
             nn.Conv2d(hidden_dim, 32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.Conv2d(32, 1, kernel_size=1)
+            nn.Conv2d(32, 1, kernel_size=1),
         )
 
     def forward(self, t0: torch.Tensor, t1: torch.Tensor) -> torch.Tensor:
@@ -74,7 +75,7 @@ class PrithviChangeDetector:
         self,
         weights_path: Optional[str] = None,
         device: Optional[torch.device] = None,
-        threshold: float = 0.60
+        threshold: float = 0.60,
     ):
         self.device = device or get_optimal_device()
         self.threshold = threshold
@@ -85,7 +86,7 @@ class PrithviChangeDetector:
         logger.info(
             "Initializing Prithvi-EO-2.0 Change Detection Engine",
             device=str(self.device),
-            model_id=HUGGING_FACE_PRITHVI_ID
+            model_id=HUGGING_FACE_PRITHVI_ID,
         )
 
         self.model = PrithviChangeDetectionHead(in_channels=6, hidden_dim=64).to(self.device)
@@ -97,7 +98,9 @@ class PrithviChangeDetector:
 
         self.model.eval()
 
-    def preprocess_tensor_stack(self, temporal_stack: np.ndarray) -> Tuple[torch.Tensor, torch.Tensor]:
+    def preprocess_tensor_stack(
+        self, temporal_stack: np.ndarray
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Convert (2, 6, H, W) or (B, 6, 2, H, W) numpy cube into standardized PyTorch tensors.
 
         Args:
@@ -123,9 +126,7 @@ class PrithviChangeDetector:
 
     @torch.no_grad()
     def detect_changes(
-        self,
-        temporal_stack: np.ndarray,
-        threshold: Optional[float] = None
+        self, temporal_stack: np.ndarray, threshold: Optional[float] = None
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Detect infrastructure changes between baseline and monitor scenes.
 
@@ -152,6 +153,6 @@ class PrithviChangeDetector:
             "Change detection inference complete",
             anomaly_pixels=int(np.sum(binary_mask)),
             anomaly_ratio=round(float(np.mean(binary_mask)), 4),
-            threshold=th
+            threshold=th,
         )
         return binary_mask, prob_map

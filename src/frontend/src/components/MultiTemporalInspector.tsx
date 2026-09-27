@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Layers, Sun, Cloud, Calendar, Shield } from 'lucide-react';
-import { DetectionFeature } from '../types';
+import React, { useState, useEffect, useRef } from "react";
+import { X, Layers, Sun, Cloud, Calendar, Shield } from "lucide-react";
+import { DetectionFeature } from "../types";
 
 interface MultiTemporalInspectorProps {
   feature: DetectionFeature | null;
@@ -13,7 +13,7 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
   feature,
   onClose,
   onOpenReview,
-  apiUrl = 'http://localhost:8000',
+  apiUrl = "http://localhost:8000",
 }) => {
   const [sliderPos, setSliderPos] = useState<number>(50); // Percentage 0 - 100
   const [showMask, setShowMask] = useState<boolean>(true);
@@ -22,14 +22,14 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'm' || e.key === 'M') {
+      if (e.key === "m" || e.key === "M") {
         setShowMask((prev) => !prev);
-      } else if (e.key === 'Escape') {
+      } else if (e.key === "Escape") {
         onClose();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
   if (!feature) return null;
@@ -69,7 +69,7 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
                 MULTI-TEMPORAL CHIP INSPECTOR
               </h2>
               <div className="text-xs text-slate-400 font-mono">
-                TARGET ID: {detId} · {props.classification.replace(/_/g, ' ')}
+                TARGET ID: {detId} · {props.classification.replace(/_/g, " ")}
               </div>
             </div>
           </div>
@@ -95,19 +95,25 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5 text-amber-400">
               <Calendar size={14} />
-              <span>T0 Baseline: {props.baseline_timestamp?.slice(0, 10) || '2026-05-15'}</span>
+              <span>
+                T0 Baseline:{" "}
+                {props.baseline_timestamp?.slice(0, 10) || "2026-05-15"}
+              </span>
             </span>
             <span className="text-slate-600">➔</span>
             <span className="flex items-center gap-1.5 text-cyan-400">
               <Calendar size={14} />
-              <span>T1 Monitor: {props.detection_timestamp?.slice(0, 10) || '2026-09-27'}</span>
+              <span>
+                T1 Monitor:{" "}
+                {props.detection_timestamp?.slice(0, 10) || "2026-09-27"}
+              </span>
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-slate-400">
             <span className="flex items-center gap-1">
               <Cloud size={14} />
-              <span>Cloud: {props.stac_metadata?.cloud_cover ?? '1.2'}%</span>
+              <span>Cloud: {props.stac_metadata?.cloud_cover ?? "1.2"}%</span>
             </span>
             <span className="flex items-center gap-1">
               <Sun size={14} />
@@ -115,7 +121,7 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
             </span>
             <span className="flex items-center gap-1">
               <Shield size={14} />
-              <span>Sensor: {props.sensor_source || 'Sentinel-2A'}</span>
+              <span>Sensor: {props.sensor_source || "Sentinel-2A"}</span>
             </span>
           </div>
         </div>
@@ -154,7 +160,7 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
                 src={t0Url}
                 alt="T0 Baseline Pass"
                 className="absolute inset-0 w-full h-full object-cover max-w-none pointer-events-none"
-                style={{ width: containerRef.current?.clientWidth || '100%' }}
+                style={{ width: containerRef.current?.clientWidth || "100%" }}
               />
             </div>
 
@@ -184,8 +190,8 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
                 onClick={() => setShowMask((prev) => !prev)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold border transition-colors flex items-center gap-1.5 ${
                   showMask
-                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(0,242,254,0.2)]'
-                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                    ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(0,242,254,0.2)]"
+                    : "bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200"
                 }`}
               >
                 <Layers size={13} />

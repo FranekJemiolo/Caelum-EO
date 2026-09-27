@@ -79,7 +79,7 @@ if [ "$SKIP_DOCKER" = false ] && command -v docker >/dev/null 2>&1 && docker inf
     echo -e "${GREEN}[✓] Docker daemon is running.${NC}"
     docker compose up -d postgis minio minio-init redpanda
 
-    
+
     # Wait for PostGIS to accept connections
     echo -e "${YELLOW}[...] Waiting for PostGIS spatial database readiness...${NC}"
     RETRY_COUNT=0

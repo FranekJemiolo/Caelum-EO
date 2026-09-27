@@ -1,6 +1,13 @@
-import React from 'react';
-import { AlertTriangle, ChevronRight, Eye, CheckCircle2, XCircle, ShieldAlert } from 'lucide-react';
-import { DetectionFeature } from '../types';
+import React from "react";
+import {
+  AlertTriangle,
+  ChevronRight,
+  Eye,
+  CheckCircle2,
+  XCircle,
+  ShieldAlert,
+} from "lucide-react";
+import { DetectionFeature } from "../types";
 
 interface TriageHotlistProps {
   items: DetectionFeature[];
@@ -21,22 +28,27 @@ export const TriageHotlist: React.FC<TriageHotlistProps> = ({
 }) => {
   // Sort by priority_score descending
   const sortedItems = [...items].sort(
-    (a, b) => (b.properties.priority_score || 0) - (a.properties.priority_score || 0)
+    (a, b) =>
+      (b.properties.priority_score || 0) - (a.properties.priority_score || 0),
   );
 
   return (
     <aside
       className={`fixed top-4 right-4 z-20 flex transition-all duration-300 ${
-        isOpen ? 'translate-x-0' : 'translate-x-[calc(100%-48px)]'
+        isOpen ? "translate-x-0" : "translate-x-[calc(100%-48px)]"
       }`}
     >
       {/* Toggle Tab Button */}
       <button
         onClick={onToggle}
         className="h-12 w-12 bg-slate-900/90 text-cyan-400 border border-slate-700/80 rounded-l-xl flex items-center justify-center backdrop-blur-md hover:bg-slate-800 transition-colors shadow-2xl focus:outline-none"
-        title={isOpen ? 'Collapse Triage Hotlist' : 'Open Triage Hotlist'}
+        title={isOpen ? "Collapse Triage Hotlist" : "Open Triage Hotlist"}
       >
-        {isOpen ? <ChevronRight size={20} /> : <ShieldAlert size={20} className="animate-pulse" />}
+        {isOpen ? (
+          <ChevronRight size={20} />
+        ) : (
+          <ShieldAlert size={20} className="animate-pulse" />
+        )}
       </button>
 
       {/* Main Drawer Container */}
@@ -72,17 +84,18 @@ export const TriageHotlist: React.FC<TriageHotlistProps> = ({
                   onClick={() => onSelectTarget(item)}
                   className={`pt-2.5 first:pt-0 p-3 rounded-lg cursor-pointer transition-all border ${
                     isSelected
-                      ? 'bg-cyan-950/30 border-cyan-500/50 shadow-[0_0_15px_rgba(0,242,254,0.15)]'
-                      : 'bg-slate-900/40 border-slate-800/60 hover:bg-slate-900/80 hover:border-slate-700'
+                      ? "bg-cyan-950/30 border-cyan-500/50 shadow-[0_0_15px_rgba(0,242,254,0.15)]"
+                      : "bg-slate-900/40 border-slate-800/60 hover:bg-slate-900/80 hover:border-slate-700"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <span className="text-xs font-bold text-slate-200 tracking-wide">
-                        {props.classification.replace(/_/g, ' ')}
+                        {props.classification.replace(/_/g, " ")}
                       </span>
                       <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        {props.detection_timestamp?.slice(0, 10)} · {props.sensor_source?.slice(0, 11)}
+                        {props.detection_timestamp?.slice(0, 10)} ·{" "}
+                        {props.sensor_source?.slice(0, 11)}
                       </div>
                     </div>
 
@@ -91,10 +104,10 @@ export const TriageHotlist: React.FC<TriageHotlistProps> = ({
                       <span
                         className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
                           prio >= 0.85
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            : prio >= 0.70
-                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                            ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                            : prio >= 0.7
+                              ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                              : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
                         }`}
                       >
                         P-{(prio * 100).toFixed(0)}
@@ -105,12 +118,15 @@ export const TriageHotlist: React.FC<TriageHotlistProps> = ({
                   {/* Status & Action Buttons */}
                   <div className="mt-3 flex items-center justify-between text-xs pt-2 border-t border-slate-800/60">
                     <span className="flex items-center gap-1.5 text-[11px] font-mono">
-                      {props.review_status === 'VERIFIED' ? (
+                      {props.review_status === "VERIFIED" ? (
                         <>
-                          <CheckCircle2 size={13} className="text-emerald-400" />
+                          <CheckCircle2
+                            size={13}
+                            className="text-emerald-400"
+                          />
                           <span className="text-emerald-400">VERIFIED</span>
                         </>
-                      ) : props.review_status === 'FALSE_POSITIVE' ? (
+                      ) : props.review_status === "FALSE_POSITIVE" ? (
                         <>
                           <XCircle size={13} className="text-rose-400" />
                           <span className="text-rose-400">FALSE POS</span>
@@ -118,7 +134,9 @@ export const TriageHotlist: React.FC<TriageHotlistProps> = ({
                       ) : (
                         <>
                           <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                          <span className="text-amber-400 font-semibold">PENDING</span>
+                          <span className="text-amber-400 font-semibold">
+                            PENDING
+                          </span>
                         </>
                       )}
                     </span>

@@ -4,15 +4,20 @@ Handles spatial database queries with PostGIS and provides seamless in-memory fa
 for standalone offline testing.
 """
 
-from datetime import datetime, timezone
-import json
 import os
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-import psycopg2
-from psycopg2.extras import RealDictCursor
-import structlog
 
-from src.api.models import InfrastructureClass, ReviewPayload, ReviewResponse, ReviewStatus, ZoneSummary
+import psycopg2
+import structlog
+from psycopg2.extras import RealDictCursor
+
+from src.api.models import (
+    ReviewPayload,
+    ReviewResponse,
+    ReviewStatus,
+    ZoneSummary,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -61,7 +66,9 @@ SEED_ZONES = [
         "alert_level": "HIGH",
         "boundary": {
             "type": "Polygon",
-            "coordinates": [[[23.00, 54.00], [23.50, 54.00], [23.50, 54.40], [23.00, 54.40], [23.00, 54.00]]],
+            "coordinates": [
+                [[23.00, 54.00], [23.50, 54.00], [23.50, 54.40], [23.00, 54.40], [23.00, 54.00]]
+            ],
         },
     },
     {
@@ -70,7 +77,9 @@ SEED_ZONES = [
         "alert_level": "ELEVATED",
         "boundary": {
             "type": "Polygon",
-            "coordinates": [[[23.00, 54.40], [23.50, 54.40], [23.50, 54.70], [23.00, 54.70], [23.00, 54.40]]],
+            "coordinates": [
+                [[23.00, 54.40], [23.50, 54.40], [23.50, 54.70], [23.00, 54.70], [23.00, 54.40]]
+            ],
         },
     },
     {
@@ -79,7 +88,9 @@ SEED_ZONES = [
         "alert_level": "NORMAL",
         "boundary": {
             "type": "Polygon",
-            "coordinates": [[[22.60, 53.90], [23.00, 53.90], [23.00, 54.30], [22.60, 54.30], [22.60, 53.90]]],
+            "coordinates": [
+                [[22.60, 53.90], [23.00, 53.90], [23.00, 54.30], [22.60, 54.30], [22.60, 53.90]]
+            ],
         },
     },
 ]
@@ -89,7 +100,15 @@ SEED_DETECTIONS = [
         "id": "a1b2c3d4-e5f6-47a8-b901-23456789abcd",
         "geometry": {
             "type": "Polygon",
-            "coordinates": [[[23.148, 54.118], [23.156, 54.118], [23.156, 54.126], [23.148, 54.126], [23.148, 54.118]]],
+            "coordinates": [
+                [
+                    [23.148, 54.118],
+                    [23.156, 54.118],
+                    [23.156, 54.126],
+                    [23.148, 54.126],
+                    [23.148, 54.118],
+                ]
+            ],
         },
         "classification": "RADAR_DOME",
         "confidence": 0.965,
@@ -108,7 +127,15 @@ SEED_DETECTIONS = [
         "id": "b2c3d4e5-f6a7-48b9-c012-3456789abcde",
         "geometry": {
             "type": "Polygon",
-            "coordinates": [[[23.180, 54.100], [23.210, 54.100], [23.210, 54.115], [23.180, 54.115], [23.180, 54.100]]],
+            "coordinates": [
+                [
+                    [23.180, 54.100],
+                    [23.210, 54.100],
+                    [23.210, 54.115],
+                    [23.180, 54.115],
+                    [23.180, 54.100],
+                ]
+            ],
         },
         "classification": "LOGISTICS_DEPOT",
         "confidence": 0.912,
@@ -127,7 +154,15 @@ SEED_DETECTIONS = [
         "id": "c3d4e5f6-a7b8-49c0-d123-456789abcdef",
         "geometry": {
             "type": "Polygon",
-            "coordinates": [[[23.280, 54.195], [23.355, 54.200], [23.350, 54.215], [23.275, 54.210], [23.280, 54.195]]],
+            "coordinates": [
+                [
+                    [23.280, 54.195],
+                    [23.355, 54.200],
+                    [23.350, 54.215],
+                    [23.275, 54.210],
+                    [23.280, 54.195],
+                ]
+            ],
         },
         "classification": "RUNWAY_TAXIWAY",
         "confidence": 0.984,
@@ -146,7 +181,15 @@ SEED_DETECTIONS = [
         "id": "d4e5f6a7-b8c9-40d1-e234-56789abcdef0",
         "geometry": {
             "type": "Polygon",
-            "coordinates": [[[23.220, 54.130], [23.238, 54.130], [23.238, 54.144], [23.220, 54.144], [23.220, 54.130]]],
+            "coordinates": [
+                [
+                    [23.220, 54.130],
+                    [23.238, 54.130],
+                    [23.238, 54.144],
+                    [23.220, 54.144],
+                    [23.220, 54.130],
+                ]
+            ],
         },
         "classification": "DEFENSE_REVETMENT",
         "confidence": 0.941,
@@ -165,7 +208,15 @@ SEED_DETECTIONS = [
         "id": "e5f6a7b8-c9d0-41e2-f345-6789abcdef01",
         "geometry": {
             "type": "Polygon",
-            "coordinates": [[[23.190, 54.118], [23.208, 54.118], [23.208, 54.129], [23.190, 54.129], [23.190, 54.118]]],
+            "coordinates": [
+                [
+                    [23.190, 54.118],
+                    [23.208, 54.118],
+                    [23.208, 54.129],
+                    [23.190, 54.129],
+                    [23.190, 54.118],
+                ]
+            ],
         },
         "classification": "INDUSTRIAL_BUILDING",
         "confidence": 0.893,
@@ -188,7 +239,9 @@ class TriageService:
 
     def __init__(self):
         self._conn = None
-        self._mock_detections: Dict[str, Dict[str, Any]] = {d["id"]: dict(d) for d in SEED_DETECTIONS}
+        self._mock_detections: Dict[str, Dict[str, Any]] = {
+            d["id"]: dict(d) for d in SEED_DETECTIONS
+        }
         self._mock_zones: Dict[str, Dict[str, Any]] = {z["id"]: dict(z) for z in SEED_ZONES}
         self._mock_audit_log: List[Dict[str, Any]] = []
 
@@ -279,15 +332,19 @@ class TriageService:
                     for dt_field in ["baseline_timestamp", "detection_timestamp", "reviewed_at"]:
                         if r[dt_field] and hasattr(r[dt_field], "isoformat"):
                             r[dt_field] = r[dt_field].isoformat()
-                    features.append({
-                        "type": "Feature",
-                        "id": str(r["id"]),
-                        "geometry": geom,
-                        "properties": r,
-                    })
+                    features.append(
+                        {
+                            "type": "Feature",
+                            "id": str(r["id"]),
+                            "geometry": geom,
+                            "properties": r,
+                        }
+                    )
                 return {"type": "FeatureCollection", "features": features}
             except Exception as exc:
-                logger.warning("PostGIS detection query failed; falling back to memory store", error=str(exc))
+                logger.warning(
+                    "PostGIS detection query failed; falling back to memory store", error=str(exc)
+                )
 
         # Memory store fallback
         filtered = list(self._mock_detections.values())
@@ -309,7 +366,9 @@ class TriageService:
         for d in paged:
             props = dict(d)
             geom = props.pop("geometry")
-            features.append({"type": "Feature", "id": str(d["id"]), "geometry": geom, "properties": props})
+            features.append(
+                {"type": "Feature", "id": str(d["id"]), "geometry": geom, "properties": props}
+            )
         return {"type": "FeatureCollection", "features": features}
 
     def get_zones_summary(self) -> List[ZoneSummary]:
@@ -361,7 +420,10 @@ class TriageService:
                     )
                 return results
             except Exception as exc:
-                logger.warning("PostGIS zone summary query failed; falling back to memory store", error=str(exc))
+                logger.warning(
+                    "PostGIS zone summary query failed; falling back to memory store",
+                    error=str(exc),
+                )
 
         # Memory store aggregation
         summaries = []
@@ -419,11 +481,16 @@ class TriageService:
                     rows = cur.fetchall()
 
                 for r in rows:
-                    if r.get("detection_timestamp") and hasattr(r["detection_timestamp"], "isoformat"):
+                    if r.get("detection_timestamp") and hasattr(
+                        r["detection_timestamp"], "isoformat"
+                    ):
                         r["detection_timestamp"] = r["detection_timestamp"].isoformat()
                 return list(rows)
             except Exception as exc:
-                logger.warning("PostGIS triage queue query failed; falling back to memory store", error=str(exc))
+                logger.warning(
+                    "PostGIS triage queue query failed; falling back to memory store",
+                    error=str(exc),
+                )
 
         # Memory store fallback
         pending = [
@@ -469,7 +536,9 @@ class TriageService:
                                 row[dt] = row[dt].isoformat()
                         return dict(row)
             except Exception as exc:
-                logger.warning("PostGIS detection query by ID failed", id=detection_id, error=str(exc))
+                logger.warning(
+                    "PostGIS detection query by ID failed", id=detection_id, error=str(exc)
+                )
 
         return self._mock_detections.get(detection_id)
 
@@ -493,7 +562,7 @@ class TriageService:
         zone_alert = "NORMAL"
         for z in SEED_ZONES:
             if z["id"] == zone_id:
-                zone_alert = z["alert_level"]
+                zone_alert = str(z["alert_level"])
 
         if payload.review_status == ReviewStatus.FALSE_POSITIVE:
             new_priority = 0.0
@@ -564,7 +633,9 @@ class TriageService:
                         ],
                     )
             except Exception as exc:
-                logger.warning("PostGIS review update failed; updating memory store", error=str(exc))
+                logger.warning(
+                    "PostGIS review update failed; updating memory store", error=str(exc)
+                )
 
         # Memory store update
         if detection_id in self._mock_detections:
@@ -576,14 +647,16 @@ class TriageService:
             self._mock_detections[detection_id]["reviewed_by"] = payload.reviewed_by
             self._mock_detections[detection_id]["reviewed_at"] = now_iso
 
-        self._mock_audit_log.append({
-            "detection_id": detection_id,
-            "previous_status": prev_status,
-            "new_status": payload.review_status.value,
-            "reviewer_notes": payload.reviewer_notes,
-            "reviewed_by": payload.reviewed_by,
-            "reviewed_at": now_iso,
-        })
+        self._mock_audit_log.append(
+            {
+                "detection_id": detection_id,
+                "previous_status": prev_status,
+                "new_status": payload.review_status.value,
+                "reviewer_notes": payload.reviewer_notes,
+                "reviewed_by": payload.reviewed_by,
+                "reviewed_at": now_iso,
+            }
+        )
 
         return ReviewResponse(
             id=detection_id,

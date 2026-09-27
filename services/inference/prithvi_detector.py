@@ -7,11 +7,11 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 
 import os
 from typing import Optional, Tuple
+
 import numpy as np
 import structlog
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from services.inference.config import ModelSettings, inference_settings
 
@@ -30,7 +30,7 @@ class PrithviChangeDetectionHead(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, padding=1),
             nn.BatchNorm2d(hidden_dim),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
 
         # Difference + concatenation fusion block
@@ -41,7 +41,7 @@ class PrithviChangeDetectionHead(nn.Module):
             nn.Conv2d(hidden_dim, 32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.Conv2d(32, 1, kernel_size=1)
+            nn.Conv2d(32, 1, kernel_size=1),
         )
 
     def forward(self, t0: torch.Tensor, t1: torch.Tensor) -> torch.Tensor:
@@ -56,7 +56,7 @@ class PrithviChangeDetectionHead(nn.Module):
         """
         # Calculate normalized spectral euclidean distance
         spec_diff = torch.norm(t1 - t0, dim=1, keepdim=True) / 2.449  # Normalized by sqrt(6)
-        
+
         f0 = self.encoder(t0)
         f1 = self.encoder(t1)
         diff = torch.abs(f1 - f0)
@@ -64,7 +64,7 @@ class PrithviChangeDetectionHead(nn.Module):
         # Fuse baseline, new acquisition, and absolute difference
         fused = torch.cat([f0, f1, diff], dim=1)
         neural_logits = self.fusion(fused)
-        
+
         # When running without pre-trained fine-tuning, blend spectral difference signal
         combined = torch.sigmoid(neural_logits) * 0.2 + torch.clamp(spec_diff, 0.0, 1.0) * 0.8
         return combined
@@ -82,7 +82,9 @@ class PrithviChangeDetector:
 
     def _load_model(self) -> nn.Module:
         """Initialize and load model weights."""
-        logger.info("Initializing Prithvi-EO-2.0 Change Detection Head", device=self.settings.device)
+        logger.info(
+            "Initializing Prithvi-EO-2.0 Change Detection Head", device=self.settings.device
+        )
         model = PrithviChangeDetectionHead(in_channels=6, hidden_dim=64).to(self.device)
 
         if os.path.exists(self.settings.prithvi_weights_path):
@@ -92,7 +94,7 @@ class PrithviChangeDetector:
         else:
             logger.warning(
                 "No pre-trained weights found at path; running in baseline feature-difference mode",
-                path=self.settings.prithvi_weights_path
+                path=self.settings.prithvi_weights_path,
             )
 
         model.eval()
@@ -107,8 +109,11 @@ class PrithviChangeDetector:
         Returns:
             Tuple of (t0_tensor, t1_tensor) each of shape (1, 6, H, W) standardized by empirical stats.
         """
-        assert temporal_stack.ndim == 4 and temporal_stack.shape[0] == 2 and temporal_stack.shape[1] == 6, \
-            f"Expected (2, 6, H, W), got {temporal_stack.shape}"
+        assert (
+            temporal_stack.ndim == 4
+            and temporal_stack.shape[0] == 2
+            and temporal_stack.shape[1] == 6
+        ), f"Expected (2, 6, H, W), got {temporal_stack.shape}"
 
         t0_raw = torch.from_numpy(temporal_stack[0]).unsqueeze(0).float().to(self.device)
         t1_raw = torch.from_numpy(temporal_stack[1]).unsqueeze(0).float().to(self.device)
@@ -121,9 +126,7 @@ class PrithviChangeDetector:
 
     @torch.no_grad()
     def detect_changes(
-        self,
-        temporal_stack: np.ndarray,
-        threshold: Optional[float] = None
+        self, temporal_stack: np.ndarray, threshold: Optional[float] = None
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Detect anomalous structural changes between two co-registered timestamps.
 
@@ -136,7 +139,9 @@ class PrithviChangeDetector:
                 - binary_mask: Uint8 array (H, W) where 1 indicates anomaly, 0 is background.
                 - prob_map: Float32 array (H, W) representing change confidence.
         """
-        prob_thresh = threshold if threshold is not None else self.settings.change_probability_threshold
+        prob_thresh = (
+            threshold if threshold is not None else self.settings.change_probability_threshold
+        )
         t0, t1 = self.preprocess(temporal_stack)
 
         prob_tensor = self.model(t0, t1)
@@ -150,6 +155,6 @@ class PrithviChangeDetector:
             total_pixels=binary_mask.size,
             anomaly_pixels=int(np.sum(binary_mask)),
             anomaly_ratio=float(np.mean(binary_mask)),
-            threshold=prob_thresh
+            threshold=prob_thresh,
         )
         return binary_mask, prob_map

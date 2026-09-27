@@ -17,10 +17,8 @@ def test_kafka_producer_dry_run():
         cloud_cover=8.0,
         mgrs_tile="34UFB",
         geofence_id="suwalki-gap",
-        assets={
-            "B02": STACAssetMeta(href="https://copernicus.eu/b02.tif")
-        },
-        published_at="2026-09-27T10:05:00Z"
+        assets={"B02": STACAssetMeta(href="https://copernicus.eu/b02.tif")},
+        published_at="2026-09-27T10:05:00Z",
     )
 
     success = producer.publish_item(payload)
@@ -44,7 +42,7 @@ def test_kafka_producer_batch_publish():
             geofence_id="suwalki-gap",
             mgrs_tile="34UFB",
             assets={},
-            published_at="2026-09-27T10:05:00Z"
+            published_at="2026-09-27T10:05:00Z",
         )
         for i in range(5)
     ]

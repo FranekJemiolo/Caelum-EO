@@ -12,9 +12,10 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
+
 import pystac_client
-from pydantic import BaseModel, Field
 import structlog
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger(__name__)
 
@@ -52,15 +53,15 @@ class CDSEClient:
         self,
         stac_url: str = DEFAULT_CDSE_STAC_URL,
         mock_mode: bool = MOCK_INGEST_ENV,
-        mock_data_dir: str = "./data/mock"
+        mock_data_dir: str = "./data/mock",
     ):
         self.stac_url = stac_url
         self.mock_mode = mock_mode
         self.mock_data_dir = Path(mock_data_dir)
-        self._client = None
+        self._client: Optional[pystac_client.Client] = None
 
     @property
-    def client(self) -> pystac_client.Client:
+    def client(self) -> Optional[pystac_client.Client]:
         if self._client is None and not self.mock_mode:
             try:
                 logger.info("Connecting to live CDSE STAC endpoint", url=self.stac_url)
@@ -68,7 +69,7 @@ class CDSEClient:
             except Exception as exc:
                 logger.warning(
                     "Failed to connect to CDSE STAC API; activating offline mock mode",
-                    error=str(exc)
+                    error=str(exc),
                 )
                 self.mock_mode = True
         return self._client
@@ -80,20 +81,24 @@ class CDSEClient:
         end_time: datetime,
         max_cloud_cover: float = 20.0,
         collection: str = "SENTINEL-2",
-        limit: int = 20
+        limit: int = 20,
     ) -> List[STACItemPayload]:
         """Query STAC items within bounding box and time window."""
         if self.mock_mode:
-            logger.info("Serving synthetic mock scenes from local storage", mock_dir=str(self.mock_data_dir))
+            logger.info(
+                "Serving synthetic mock scenes from local storage", mock_dir=str(self.mock_data_dir)
+            )
             return self._generate_mock_stac_items(bbox)
 
-        datetime_range = f"{start_time.strftime('%Y-%m-%dT%H:%M:%SZ')}/{end_time.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        datetime_range = (
+            f"{start_time.strftime('%Y-%m-%dT%H:%M:%SZ')}/{end_time.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        )
+        if self.client is None:
+            return self._generate_mock_stac_items(bbox)
+
         try:
             search = self.client.search(
-                collections=[collection],
-                bbox=bbox,
-                datetime=datetime_range,
-                max_items=limit
+                collections=[collection], bbox=bbox, datetime=datetime_range, max_items=limit
             )
 
             results: List[STACItemPayload] = []
@@ -106,17 +111,19 @@ class CDSEClient:
                 bands_dict = {}
                 for b in PRITHVI_BANDS:
                     # Look up band asset
-                    matching_key = next((k for k in item.assets.keys() if b.upper() in k.upper()), None)
+                    matching_key = next(
+                        (k for k in item.assets.keys() if b.upper() in k.upper()), None
+                    )
                     if matching_key:
                         bands_dict[b] = STACBandMeta(
                             band=b,
                             href=item.assets[matching_key].href,
-                            media_type=item.assets[matching_key].media_type
+                            media_type=item.assets[matching_key].media_type,
                         )
                     else:
                         bands_dict[b] = STACBandMeta(
                             band=b,
-                            href=f"https://zipper.dataspace.copernicus.eu/odata/v1/Assets({item.id}_{b})/$value"
+                            href=f"https://zipper.dataspace.copernicus.eu/odata/v1/Assets({item.id}_{b})/$value",
                         )
 
                 scl_key = next((k for k in item.assets.keys() if "SCL" in k.upper()), None)
@@ -127,20 +134,24 @@ class CDSEClient:
                 payload = STACItemPayload(
                     item_id=item.id,
                     collection=collection,
-                    datetime=item.datetime.isoformat() if item.datetime else datetime.now(timezone.utc).isoformat(),
+                    datetime=item.datetime.isoformat()
+                    if item.datetime
+                    else datetime.now(timezone.utc).isoformat(),
                     bbox=list(item.bbox) if item.bbox else bbox,
                     cloud_cover=cloud,
                     platform=props.get("platform", "sentinel-2"),
                     mgrs_tile=str(mgrs),
                     bands=bands_dict,
                     scl_href=scl_url,
-                    is_mock=False
+                    is_mock=False,
                 )
                 results.append(payload)
 
             return results
         except Exception as exc:
-            logger.warning("Error querying remote STAC; falling back to synthetic mock items", error=str(exc))
+            logger.warning(
+                "Error querying remote STAC; falling back to synthetic mock items", error=str(exc)
+            )
             return self._generate_mock_stac_items(bbox)
 
     def _generate_mock_stac_items(self, bbox: List[float]) -> List[STACItemPayload]:
@@ -165,7 +176,7 @@ class CDSEClient:
                 mgrs_tile="34UFB",
                 bands=t0_bands,
                 scl_href=str((t0_dir / "SCL.tif").absolute()),
-                is_mock=True
+                is_mock=True,
             )
         )
 
@@ -185,7 +196,7 @@ class CDSEClient:
                 mgrs_tile="34UFB",
                 bands=t1_bands,
                 scl_href=str((t1_dir / "SCL.tif").absolute()),
-                is_mock=True
+                is_mock=True,
             )
         )
         return items

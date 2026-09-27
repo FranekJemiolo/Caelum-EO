@@ -9,11 +9,12 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Set
+
 import click
 import structlog
 
-from services.ingestion.config import IngestionConfig, settings
 from services.ingestion.cdse_stac_client import CDSEStacClient
+from services.ingestion.config import IngestionConfig, settings
 from services.ingestion.kafka_producer import GEOINTKafkaProducer
 
 logger = structlog.get_logger(__name__)
@@ -26,7 +27,7 @@ class STACIngestionWorker:
         self,
         config: Optional[IngestionConfig] = None,
         stac_client: Optional[CDSEStacClient] = None,
-        kafka_producer: Optional[GEOINTKafkaProducer] = None
+        kafka_producer: Optional[GEOINTKafkaProducer] = None,
     ):
         self.config = config or settings
         self.stac_client = stac_client or CDSEStacClient(self.config)
@@ -46,7 +47,9 @@ class STACIngestionWorker:
         if target_geofence_id:
             active_geofences = [g for g in active_geofences if g.id == target_geofence_id]
             if not active_geofences:
-                logger.error("Specified geofence not found in configuration", geofence_id=target_geofence_id)
+                logger.error(
+                    "Specified geofence not found in configuration", geofence_id=target_geofence_id
+                )
                 return 0
 
         total_published = 0
@@ -54,7 +57,7 @@ class STACIngestionWorker:
             "Starting STAC ingestion cycle",
             geofences_count=len(active_geofences),
             window_start=start_time.isoformat(),
-            window_end=now.isoformat()
+            window_end=now.isoformat(),
         )
 
         for geofence in active_geofences:
@@ -64,7 +67,7 @@ class STACIngestionWorker:
                     start_time=start_time,
                     end_time=now,
                     max_cloud_cover=self.config.default_cloud_cover_max,
-                    limit=self.config.max_items_per_query
+                    limit=self.config.max_items_per_query,
                 )
 
                 # Deduplicate against previously published items in this worker session
@@ -73,7 +76,7 @@ class STACIngestionWorker:
                     "Geofence query evaluated",
                     geofence_id=geofence.id,
                     total_found=len(items),
-                    new_unseen=len(new_items)
+                    new_unseen=len(new_items),
                 )
 
                 if new_items:
@@ -83,7 +86,9 @@ class STACIngestionWorker:
                         self.seen_item_ids.add(item.item_id)
 
             except Exception as exc:
-                logger.exception("Failed processing geofence", geofence_id=geofence.id, error=str(exc))
+                logger.exception(
+                    "Failed processing geofence", geofence_id=geofence.id, error=str(exc)
+                )
                 continue
 
         logger.info("Ingestion cycle concluded", total_new_published=total_published)
@@ -93,12 +98,14 @@ class STACIngestionWorker:
         """Continuously run polling cycles on configured interval."""
         logger.info(
             "Starting continuous STAC ingestion daemon",
-            poll_interval_seconds=self.config.poll_interval_seconds
+            poll_interval_seconds=self.config.poll_interval_seconds,
         )
         try:
             while True:
                 self.run_cycle()
-                logger.info("Sleeping until next polling cycle", seconds=self.config.poll_interval_seconds)
+                logger.info(
+                    "Sleeping until next polling cycle", seconds=self.config.poll_interval_seconds
+                )
                 time.sleep(self.config.poll_interval_seconds)
         except KeyboardInterrupt:
             logger.info("Ingestion daemon stopped by user")
@@ -107,9 +114,13 @@ class STACIngestionWorker:
 
 
 @click.command()
-@click.option("--once", is_flag=True, default=False, help="Run single poll cycle and exit immediately.")
+@click.option(
+    "--once", is_flag=True, default=False, help="Run single poll cycle and exit immediately."
+)
 @click.option("--geofence", type=str, default=None, help="Filter to specific geofence ID.")
-@click.option("--dry-run", is_flag=True, default=False, help="Skip live Kafka send and log payloads.")
+@click.option(
+    "--dry-run", is_flag=True, default=False, help="Skip live Kafka send and log payloads."
+)
 def cli(once: bool, geofence: Optional[str], dry_run: bool):
     """Caelum-EO STAC Ingestion CLI Worker."""
     cfg = settings

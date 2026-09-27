@@ -1,7 +1,7 @@
 """Unit tests for spatial alignment and temporal stacking."""
 
 import numpy as np
-import pytest
+
 from services.ingestion.consumer import SpatialAlignmentProcessor
 
 

@@ -9,21 +9,21 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 
 import json
 import os
-import sys
-import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
+
 import click
 import numpy as np
 import structlog
 import torch
 import torch.nn as nn
-from pydantic import BaseModel
 
 logger = structlog.get_logger(__name__)
 
 # Hugging Face Model ID & Device
 HUGGING_FACE_PRITHVI_ID = "ibm-nasa-geospatial/Prithvi-EO-2.0-300M"
-DEFAULT_DEVICE = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
+DEFAULT_DEVICE = (
+    "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
+)
 
 # Expected 6 Sentinel-2 bands in exact Prithvi foundation model order:
 # 0: B02 (Blue), 1: B03 (Green), 2: B04 (Red), 3: B8A (Narrow NIR), 4: B11 (SWIR 1), 5: B12 (SWIR 2)
@@ -45,7 +45,7 @@ class PrithviEOFoundationModel(nn.Module):
         self,
         model_id: str = HUGGING_FACE_PRITHVI_ID,
         weights_path: Optional[str] = None,
-        device: str = DEFAULT_DEVICE
+        device: str = DEFAULT_DEVICE,
     ):
         super().__init__()
         self.model_id = model_id
@@ -57,7 +57,7 @@ class PrithviEOFoundationModel(nn.Module):
             "Initializing Prithvi-EO-2.0 foundation model",
             model_id=self.model_id,
             device=device,
-            expected_channels=len(PRITHVI_BAND_NAMES)
+            expected_channels=len(PRITHVI_BAND_NAMES),
         )
 
         # 3D/Temporal Feature Encoder (simulates Prithvi-EO-2.0 ViT backbone patch embed)
@@ -68,7 +68,7 @@ class PrithviEOFoundationModel(nn.Module):
             nn.GELU(),
             nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, padding=1),
             nn.BatchNorm2d(hidden_dim),
-            nn.GELU()
+            nn.GELU(),
         )
 
         # Multi-Temporal Feature Difference Fusion & Change Detection Head
@@ -80,7 +80,7 @@ class PrithviEOFoundationModel(nn.Module):
             nn.Conv2d(hidden_dim, 32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.Conv2d(32, 1, kernel_size=1)
+            nn.Conv2d(32, 1, kernel_size=1),
         )
 
         if weights_path and os.path.exists(weights_path):
@@ -89,16 +89,14 @@ class PrithviEOFoundationModel(nn.Module):
         else:
             logger.info(
                 "Running Prithvi-EO-2.0 in hybrid foundation backbone mode",
-                huggingface_repo=self.model_id
+                huggingface_repo=self.model_id,
             )
 
         self.to(self.device)
         self.eval()
 
     def preprocess_temporal_tensor(
-        self,
-        t0_raster: np.ndarray,
-        t1_raster: np.ndarray
+        self, t0_raster: np.ndarray, t1_raster: np.ndarray
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Convert raw normalized (6, H, W) numpy rasters into standardized PyTorch tensors.
 
@@ -109,8 +107,9 @@ class PrithviEOFoundationModel(nn.Module):
         Returns:
             Tuple of (t0_tensor, t1_tensor), each shaped (1, 6, H, W) and standardized.
         """
-        assert t0_raster.shape[0] == 6 and t1_raster.shape[0] == 6, \
-            f"Expected 6 spectral bands, got {t0_raster.shape[0]} and {t1_raster.shape[0]}"
+        assert (
+            t0_raster.shape[0] == 6 and t1_raster.shape[0] == 6
+        ), f"Expected 6 spectral bands, got {t0_raster.shape[0]} and {t1_raster.shape[0]}"
 
         t0_torch = torch.from_numpy(t0_raster).unsqueeze(0).float().to(self.device)
         t1_torch = torch.from_numpy(t1_raster).unsqueeze(0).float().to(self.device)
@@ -123,10 +122,7 @@ class PrithviEOFoundationModel(nn.Module):
 
     @torch.no_grad()
     def forward_change_detection(
-        self,
-        t0_raster: np.ndarray,
-        t1_raster: np.ndarray,
-        threshold: float = 0.60
+        self, t0_raster: np.ndarray, t1_raster: np.ndarray, threshold: float = 0.60
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Execute forward inference through Prithvi foundation model backbone.
 
@@ -165,7 +161,7 @@ class PrithviEOFoundationModel(nn.Module):
             total_pixels=binary_mask.size,
             anomaly_pixels=int(np.sum(binary_mask)),
             anomaly_percentage=round(float(np.mean(binary_mask) * 100), 3),
-            threshold=threshold
+            threshold=threshold,
         )
         return binary_mask, prob_map
 
@@ -177,7 +173,7 @@ class InferenceCoordinator:
         self,
         kafka_broker: str = "localhost:9092",
         kafka_topic: str = "geoint-stac-ingest",
-        device: str = DEFAULT_DEVICE
+        device: str = DEFAULT_DEVICE,
     ):
         self.kafka_broker = kafka_broker
         self.kafka_topic = kafka_topic
@@ -189,22 +185,22 @@ class InferenceCoordinator:
     def consumer(self):
         if self._consumer is None:
             from kafka import KafkaConsumer
-            logger.info("Initializing Kafka Consumer", topic=self.kafka_topic, broker=self.kafka_broker)
+
+            logger.info(
+                "Initializing Kafka Consumer", topic=self.kafka_topic, broker=self.kafka_broker
+            )
             self._consumer = KafkaConsumer(
                 self.kafka_topic,
                 bootstrap_servers=self.kafka_broker.split(","),
                 auto_offset_reset="earliest",
                 enable_auto_commit=True,
                 group_id="caelum-inference-workers",
-                value_deserializer=lambda v: json.loads(v.decode("utf-8"))
+                value_deserializer=lambda v: json.loads(v.decode("utf-8")),
             )
         return self._consumer
 
     def simulate_raster_download_and_alignment(
-        self,
-        metadata_payload: Dict,
-        spatial_dim: int = 256,
-        inject_anomaly: bool = True
+        self, metadata_payload: Dict, spatial_dim: int = 256, inject_anomaly: bool = True
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Simulate windowed COG raster fetching and spatial alignment via rasterio.
 
@@ -214,7 +210,7 @@ class InferenceCoordinator:
         logger.info(
             "Simulating windowed raster alignment via rasterio",
             item_id=metadata_payload.get("item_id"),
-            bands=list(metadata_payload.get("bands", {}).keys())
+            bands=list(metadata_payload.get("bands", {}).keys()),
         )
 
         # Baseline T0: Natural background reflectance (values in [0.08, 0.25])
@@ -225,7 +221,9 @@ class InferenceCoordinator:
         t1 = np.copy(t0)
         if inject_anomaly:
             # Inject simulated logistics warehouse or radar dome build-out in center (pixels 100:150, 100:150)
-            t1[:, 100:145, 100:155] = np.random.uniform(0.80, 0.95, size=(6, 45, 55)).astype(np.float32)
+            t1[:, 100:145, 100:155] = np.random.uniform(0.80, 0.95, size=(6, 45, 55)).astype(
+                np.float32
+            )
 
         return t0, t1
 
@@ -250,7 +248,12 @@ class InferenceCoordinator:
 
 
 @click.command()
-@click.option("--mock-single", is_flag=True, default=False, help="Process a single synthetic event without Kafka.")
+@click.option(
+    "--mock-single",
+    is_flag=True,
+    default=False,
+    help="Process a single synthetic event without Kafka.",
+)
 def main(mock_single: bool):
     """Caelum-EO Inference Coordinator CLI."""
     coordinator = InferenceCoordinator()
@@ -261,10 +264,14 @@ def main(mock_single: bool):
             "bbox": [22.8, 53.8, 24.5, 54.7],
             "datetime": "2026-09-27T10:00:31Z",
             "cloud_cover": 3.4,
-            "bands": {b: {"band_name": b, "href": f"https://mock/{b}.tif"} for b in PRITHVI_BAND_NAMES}
+            "bands": {
+                b: {"band_name": b, "href": f"https://mock/{b}.tif"} for b in PRITHVI_BAND_NAMES
+            },
         }
         mask, prob = coordinator.process_stac_event(dummy_event)
-        print(f"Inference Successful! Detected {int(np.sum(mask))} change pixels across {mask.shape} grid.")
+        print(
+            f"Inference Successful! Detected {int(np.sum(mask))} change pixels across {mask.shape} grid."
+        )
     else:
         coordinator.listen_and_process()
 

@@ -1,21 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import { Check, Edit3, XCircle, ArrowRight, ShieldCheck, Tag, X } from 'lucide-react';
-import { DetectionFeature, InfrastructureClass, ReviewPayload, ReviewStatus } from '../types';
+import React, { useState, useEffect } from "react";
+import {
+  Check,
+  Edit3,
+  XCircle,
+  ArrowRight,
+  ShieldCheck,
+  Tag,
+  X,
+} from "lucide-react";
+import {
+  DetectionFeature,
+  InfrastructureClass,
+  ReviewPayload,
+  ReviewStatus,
+} from "../types";
 
 interface ReviewModalProps {
   feature: DetectionFeature | null;
   onClose: () => void;
-  onSubmitReview: (detectionId: string, payload: ReviewPayload) => Promise<void>;
+  onSubmitReview: (
+    detectionId: string,
+    payload: ReviewPayload,
+  ) => Promise<void>;
   onNextQueueItem?: () => void;
 }
 
 const CLASSIFICATION_OPTIONS: InfrastructureClass[] = [
-  'RUNWAY_TAXIWAY',
-  'RADAR_DOME',
-  'LOGISTICS_DEPOT',
-  'DEFENSE_REVETMENT',
-  'INDUSTRIAL_BUILDING',
-  'UNKNOWN_STRUCTURE',
+  "RUNWAY_TAXIWAY",
+  "RADAR_DOME",
+  "LOGISTICS_DEPOT",
+  "DEFENSE_REVETMENT",
+  "INDUSTRIAL_BUILDING",
+  "UNKNOWN_STRUCTURE",
 ];
 
 export const ReviewModal: React.FC<ReviewModalProps> = ({
@@ -25,16 +41,16 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   onNextQueueItem,
 }) => {
   const [selectedClass, setSelectedClass] = useState<InfrastructureClass>(
-    feature?.properties.classification || 'UNKNOWN_STRUCTURE'
+    feature?.properties.classification || "UNKNOWN_STRUCTURE",
   );
-  const [notes, setNotes] = useState<string>('');
-  const analystId = 'analyst_01';
+  const [notes, setNotes] = useState<string>("");
+  const analystId = "analyst_01";
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
     if (feature) {
       setSelectedClass(feature.properties.classification);
-      setNotes(feature.properties.reviewer_notes || '');
+      setNotes(feature.properties.reviewer_notes || "");
     }
   }, [feature]);
 
@@ -42,39 +58,46 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Do not trigger if typing in notes input
-      if (document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'INPUT') {
+      if (
+        document.activeElement?.tagName === "TEXTAREA" ||
+        document.activeElement?.tagName === "INPUT"
+      ) {
         return;
       }
 
-      if (e.key === 'v' || e.key === 'V') {
-        handleAction('VERIFIED');
-      } else if (e.key === 'f' || e.key === 'F') {
-        handleAction('FALSE_POSITIVE');
-      } else if (e.code === 'Space' && onNextQueueItem) {
+      if (e.key === "v" || e.key === "V") {
+        handleAction("VERIFIED");
+      } else if (e.key === "f" || e.key === "F") {
+        handleAction("FALSE_POSITIVE");
+      } else if (e.code === "Space" && onNextQueueItem) {
         e.preventDefault();
         onNextQueueItem();
-      } else if (e.key === 'Escape') {
+      } else if (e.key === "Escape") {
         onClose();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   });
 
   if (!feature) return null;
 
   const props = feature.properties;
 
-  const handleAction = async (status: ReviewStatus, overrideClass?: InfrastructureClass) => {
+  const handleAction = async (
+    status: ReviewStatus,
+    overrideClass?: InfrastructureClass,
+  ) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       const payload: ReviewPayload = {
         review_status: status,
-        verified_class: status === 'FALSE_POSITIVE' ? null : (overrideClass || selectedClass),
+        verified_class:
+          status === "FALSE_POSITIVE" ? null : overrideClass || selectedClass,
         reviewer_notes: notes.trim() || undefined,
-        reviewed_by: analystId.trim() || 'analyst_callsign',
+        reviewed_by: analystId.trim() || "analyst_callsign",
       };
       await onSubmitReview(feature.id, payload);
       if (onNextQueueItem) {
@@ -83,7 +106,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
         onClose();
       }
     } catch (err) {
-      console.error('Failed to submit review:', err);
+      console.error("Failed to submit review:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -102,7 +125,9 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
               <h2 className="text-base font-bold text-slate-100 font-mono tracking-wide">
                 HITL TRIAGE & RECLASSIFICATION
               </h2>
-              <div className="text-xs text-slate-400 font-mono">TARGET ID: {feature.id}</div>
+              <div className="text-xs text-slate-400 font-mono">
+                TARGET ID: {feature.id}
+              </div>
             </div>
           </div>
 
@@ -119,26 +144,38 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           {/* Target Metadata Overview */}
           <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs font-mono">
             <div>
-              <span className="text-slate-500 uppercase text-[10px]">Predicted Class:</span>
+              <span className="text-slate-500 uppercase text-[10px]">
+                Predicted Class:
+              </span>
               <div className="font-bold text-cyan-400 mt-0.5">
-                {props.classification.replace(/_/g, ' ')}
+                {props.classification.replace(/_/g, " ")}
               </div>
             </div>
             <div>
-              <span className="text-slate-500 uppercase text-[10px]">Model Confidence:</span>
+              <span className="text-slate-500 uppercase text-[10px]">
+                Model Confidence:
+              </span>
               <div className="font-bold text-slate-200 mt-0.5">
                 {(props.confidence * 100).toFixed(1)}%
               </div>
             </div>
             <div>
-              <span className="text-slate-500 uppercase text-[10px]">Geodesic Footprint:</span>
+              <span className="text-slate-500 uppercase text-[10px]">
+                Geodesic Footprint:
+              </span>
               <div className="font-bold text-slate-300 mt-0.5">
-                {props.area_sq_meters ? `${Math.round(props.area_sq_meters).toLocaleString()} m²` : 'N/A'}
+                {props.area_sq_meters
+                  ? `${Math.round(props.area_sq_meters).toLocaleString()} m²`
+                  : "N/A"}
               </div>
             </div>
             <div>
-              <span className="text-slate-500 uppercase text-[10px]">Current Review:</span>
-              <div className="font-bold text-amber-400 mt-0.5">{props.review_status}</div>
+              <span className="text-slate-500 uppercase text-[10px]">
+                Current Review:
+              </span>
+              <div className="font-bold text-amber-400 mt-0.5">
+                {props.review_status}
+              </div>
             </div>
           </div>
 
@@ -150,12 +187,14 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             </label>
             <select
               value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value as InfrastructureClass)}
+              onChange={(e) =>
+                setSelectedClass(e.target.value as InfrastructureClass)
+              }
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-slate-100 text-sm font-mono focus:border-cyan-400 focus:outline-none transition-colors"
             >
               {CLASSIFICATION_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
-                  {opt.replace(/_/g, ' ')}
+                  {opt.replace(/_/g, " ")}
                 </option>
               ))}
             </select>
@@ -181,10 +220,13 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             {/* [V] Verify Correct */}
             <button
               disabled={isSubmitting}
-              onClick={() => handleAction('VERIFIED', props.classification)}
+              onClick={() => handleAction("VERIFIED", props.classification)}
               className="flex flex-col items-center justify-center p-3 rounded-xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 transition-all font-mono group"
             >
-              <Check size={18} className="mb-1 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <Check
+                size={18}
+                className="mb-1 text-emerald-400 group-hover:scale-110 transition-transform"
+              />
               <span className="text-xs font-bold">[V] Verify</span>
               <span className="text-[9px] text-emerald-400/80">Confirmed</span>
             </button>
@@ -192,10 +234,13 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             {/* [M] Reclassify */}
             <button
               disabled={isSubmitting}
-              onClick={() => handleAction('MISCLASSIFIED', selectedClass)}
+              onClick={() => handleAction("MISCLASSIFIED", selectedClass)}
               className="flex flex-col items-center justify-center p-3 rounded-xl bg-cyan-600/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-600/30 transition-all font-mono group"
             >
-              <Edit3 size={18} className="mb-1 text-cyan-400 group-hover:scale-110 transition-transform" />
+              <Edit3
+                size={18}
+                className="mb-1 text-cyan-400 group-hover:scale-110 transition-transform"
+              />
               <span className="text-xs font-bold">[M] Reclassify</span>
               <span className="text-[9px] text-cyan-400/80">New Label</span>
             </button>
@@ -203,12 +248,17 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             {/* [F] Mark False Positive */}
             <button
               disabled={isSubmitting}
-              onClick={() => handleAction('FALSE_POSITIVE')}
+              onClick={() => handleAction("FALSE_POSITIVE")}
               className="flex flex-col items-center justify-center p-3 rounded-xl bg-rose-600/20 border border-rose-500/40 text-rose-300 hover:bg-rose-600/30 transition-all font-mono group"
             >
-              <XCircle size={18} className="mb-1 text-rose-400 group-hover:scale-110 transition-transform" />
+              <XCircle
+                size={18}
+                className="mb-1 text-rose-400 group-hover:scale-110 transition-transform"
+              />
               <span className="text-xs font-bold">[F] False Pos</span>
-              <span className="text-[9px] text-rose-400/80">Reject Anomaly</span>
+              <span className="text-[9px] text-rose-400/80">
+                Reject Anomaly
+              </span>
             </button>
           </div>
 
@@ -216,7 +266,10 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 pt-2 border-t border-slate-800">
             <span>Keys: [V] Verify · [F] False Pos · [Esc] Close</span>
             {onNextQueueItem && (
-              <span className="text-cyan-400 flex items-center gap-1 cursor-pointer" onClick={onNextQueueItem}>
+              <span
+                className="text-cyan-400 flex items-center gap-1 cursor-pointer"
+                onClick={onNextQueueItem}
+              >
                 Next Target [Space] <ArrowRight size={12} />
               </span>
             )}

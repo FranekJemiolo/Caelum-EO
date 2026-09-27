@@ -1,16 +1,18 @@
 # Deck.gl React Visualization Specification
 
-**Repository:** `github.com/FranekJemiolo/Caelum-EO`  
+**Repository:** `github.com/FranekJemiolo/Caelum-EO`
 **Frontend Package:** `@franekjemiolo/caelum-eo-web`
 
 ---
 
 ## 1. Overview
+
 The presentation layer provides a tactical, high-refresh-rate visualization suite built on top of **React 18**, **Deck.gl 9.0**, and **MapLibre GL**.
 
 ---
 
 ## 2. Key Components
+
 1. **Deck.gl `GeoJsonLayer`:**
    - Visualizes polygon vectors from PostGIS.
    - 3D extrusion (`extruded: true`, elevation proportional to model confidence).

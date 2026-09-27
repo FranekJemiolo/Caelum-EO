@@ -1,7 +1,6 @@
 """Unit and integration tests for Caelum-EO Triage & Analytical APIs."""
 
 from fastapi.testclient import TestClient
-import pytest
 
 from src.api.main import app
 
@@ -108,7 +107,9 @@ def test_imagery_404_and_400():
     res_404 = client.get("/api/v1/detections/nonexistent-uuid/imagery")
     assert res_404.status_code == 404
 
-    res_400 = client.get("/api/v1/detections/a1b2c3d4-e5f6-47a8-b901-23456789abcd/imagery/invalid_layer")
+    res_400 = client.get(
+        "/api/v1/detections/a1b2c3d4-e5f6-47a8-b901-23456789abcd/imagery/invalid_layer"
+    )
     assert res_400.status_code == 400
 
 
@@ -133,7 +134,7 @@ def test_patch_review_hitl_reclassification():
     assert "priority_score" in data
 
     # 2. Confirm updated state in exploration endpoint
-    res_check = client.get(f"/api/v1/detections?review_status=MISCLASSIFIED")
+    res_check = client.get("/api/v1/detections?review_status=MISCLASSIFIED")
     assert res_check.status_code == 200
     features = res_check.json()["features"]
     assert any(f["id"] == det_id for f in features)

@@ -1,6 +1,7 @@
 """Unit tests for STAC polling worker orchestration."""
 
 from unittest.mock import MagicMock
+
 from services.ingestion.config import IngestionConfig, STACItemPayload
 from services.ingestion.poll_worker import STACIngestionWorker
 
@@ -18,7 +19,7 @@ def test_poll_worker_deduplication():
         geometry={},
         geofence_id="suwalki-gap",
         assets={},
-        published_at="2026-09-27T10:00:00Z"
+        published_at="2026-09-27T10:00:00Z",
     )
 
     mock_stac.search_geofence.return_value = [item_1]

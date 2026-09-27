@@ -1,8 +1,8 @@
 """ETL and raster processing package for Project Caelum-EO."""
 
-from src.etl.storage import ObjectStorageManager, storage
-from src.etl.cdse_client import CDSEClient, STACItemPayload, STACBandMeta
+from src.etl.cdse_client import CDSEClient, STACBandMeta, STACItemPayload
 from src.etl.raster_processor import RasterAlignmentProcessor
+from src.etl.storage import ObjectStorageManager, storage
 
 __all__ = [
     "ObjectStorageManager",

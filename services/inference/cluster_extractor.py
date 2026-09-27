@@ -5,11 +5,12 @@ labeling and derives georeferenced spatial bounding boxes and image chips.
 Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
+
 import numpy as np
-from scipy import ndimage
-from pydantic import BaseModel
 import structlog
+from pydantic import BaseModel
+from scipy import ndimage
 
 from services.inference.config import ModelSettings, inference_settings
 
@@ -18,11 +19,12 @@ logger = structlog.get_logger(__name__)
 
 class AnomalyCluster(BaseModel):
     """Georeferenced anomaly cluster candidate."""
+
     cluster_id: int
     pixel_bbox: Tuple[int, int, int, int]  # (min_row, min_col, max_row, max_col)
-    pixel_centroid: Tuple[float, float]    # (row, col)
-    geo_bbox: List[float]                  # [min_lon, min_lat, max_lon, max_lat]
-    geo_centroid: List[float]              # [lon, lat]
+    pixel_centroid: Tuple[float, float]  # (row, col)
+    geo_bbox: List[float]  # [min_lon, min_lat, max_lon, max_lat]
+    geo_centroid: List[float]  # [lon, lat]
     pixel_count: int
     mean_confidence: float
 
@@ -38,7 +40,7 @@ class SpatialClusterExtractor:
         self,
         binary_mask: np.ndarray,
         prob_map: np.ndarray,
-        geo_bounds: List[float]  # [min_lon, min_lat, max_lon, max_lat]
+        geo_bounds: List[float],  # [min_lon, min_lat, max_lon, max_lat]
     ) -> List[AnomalyCluster]:
         """Group connected components of 1s in the binary mask and translate to geospatial coordinates.
 
@@ -95,10 +97,15 @@ class SpatialClusterExtractor:
                 cluster_id=cluster_id,
                 pixel_bbox=(int(min_r), int(min_c), int(max_r), int(max_c)),
                 pixel_centroid=(float(cr), float(cc)),
-                geo_bbox=[float(geo_min_lon), float(geo_min_lat), float(geo_max_lon), float(geo_max_lat)],
+                geo_bbox=[
+                    float(geo_min_lon),
+                    float(geo_min_lat),
+                    float(geo_max_lon),
+                    float(geo_max_lat),
+                ],
                 geo_centroid=[float(centroid_lon), float(centroid_lat)],
                 pixel_count=pixel_count,
-                mean_confidence=mean_conf
+                mean_confidence=mean_conf,
             )
             clusters.append(cluster)
 
@@ -106,10 +113,7 @@ class SpatialClusterExtractor:
         return clusters
 
     def crop_image_chip(
-        self,
-        full_raster: np.ndarray,
-        cluster: AnomalyCluster,
-        padding: int = 16
+        self, full_raster: np.ndarray, cluster: AnomalyCluster, padding: int = 16
     ) -> Tuple[np.ndarray, Tuple[int, int]]:
         """Crop an image chip centered around the cluster for secondary classification.
 

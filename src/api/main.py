@@ -13,11 +13,12 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 import io
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+import numpy as np
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from PIL import Image
-import numpy as np
 
 from src.api.models import (
     ImageryResponse,
@@ -88,7 +89,7 @@ def get_zones_summary() -> List[ZoneSummary]:
 
 @app.get("/api/v1/triage/queue")
 def get_triage_queue(
-    limit: int = Query(50, ge=1, le=200, description="Max triage queue items to return")
+    limit: int = Query(50, ge=1, le=200, description="Max triage queue items to return"),
 ) -> List[Dict[str, Any]]:
     """Retrieve pending review detections ranked by descending priority score."""
     return triage_service.get_triage_queue(limit=limit)
@@ -177,4 +178,5 @@ def patch_detection_review(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=True)

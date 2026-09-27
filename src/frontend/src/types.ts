@@ -1,16 +1,16 @@
 export type InfrastructureClass =
-  | 'LOGISTICS_DEPOT'
-  | 'RUNWAY_TAXIWAY'
-  | 'RADAR_DOME'
-  | 'DEFENSE_REVETMENT'
-  | 'INDUSTRIAL_BUILDING'
-  | 'UNKNOWN_STRUCTURE';
+  | "LOGISTICS_DEPOT"
+  | "RUNWAY_TAXIWAY"
+  | "RADAR_DOME"
+  | "DEFENSE_REVETMENT"
+  | "INDUSTRIAL_BUILDING"
+  | "UNKNOWN_STRUCTURE";
 
 export type ReviewStatus =
-  | 'PENDING_REVIEW'
-  | 'VERIFIED'
-  | 'MISCLASSIFIED'
-  | 'FALSE_POSITIVE';
+  | "PENDING_REVIEW"
+  | "VERIFIED"
+  | "MISCLASSIFIED"
+  | "FALSE_POSITIVE";
 
 export interface DetectionProperties {
   id: string;
@@ -33,26 +33,26 @@ export interface DetectionProperties {
 }
 
 export interface DetectionFeature {
-  type: 'Feature';
+  type: "Feature";
   id: string;
   geometry: {
-    type: 'Polygon';
+    type: "Polygon";
     coordinates: number[][][];
   };
   properties: DetectionProperties;
 }
 
 export interface DetectionFeatureCollection {
-  type: 'FeatureCollection';
+  type: "FeatureCollection";
   features: DetectionFeature[];
 }
 
 export interface ZoneSummary {
   id: string;
   name: string;
-  alert_level: 'HIGH' | 'ELEVATED' | 'NORMAL';
+  alert_level: "HIGH" | "ELEVATED" | "NORMAL";
   boundary: {
-    type: 'Polygon';
+    type: "Polygon";
     coordinates: number[][][];
   };
   total_detections: number;

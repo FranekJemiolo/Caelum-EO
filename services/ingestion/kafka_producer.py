@@ -6,6 +6,7 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 
 import json
 from typing import List, Optional
+
 import structlog
 from kafka import KafkaProducer
 from kafka.errors import KafkaError
@@ -37,7 +38,7 @@ class GEOINTKafkaProducer:
                     acks=self.config.kafka_acks,
                     retries=self.config.kafka_retries,
                     value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-                    key_serializer=lambda k: k.encode("utf-8") if k else None
+                    key_serializer=lambda k: k.encode("utf-8") if k else None,
                 )
             except Exception as exc:
                 logger.error("Failed to connect to Kafka broker", error=str(exc))
@@ -58,16 +59,14 @@ class GEOINTKafkaProducer:
                 topic=self.topic,
                 key=partition_key,
                 item_id=payload.item_id,
-                cloud_cover=payload.cloud_cover
+                cloud_cover=payload.cloud_cover,
             )
             self._published_history.append(payload)
             return True
 
         try:
             future = self.producer.send(
-                topic=self.topic,
-                key=partition_key,
-                value=payload.model_dump()
+                topic=self.topic, key=partition_key, value=payload.model_dump()
             )
             # Asynchronous send with callback handling
             future.add_callback(self._on_send_success, payload.item_id)
@@ -85,7 +84,12 @@ class GEOINTKafkaProducer:
                 success_count += 1
 
         self.flush()
-        logger.info("Batch publication complete", topic=self.topic, published=success_count, total=len(items))
+        logger.info(
+            "Batch publication complete",
+            topic=self.topic,
+            published=success_count,
+            total=len(items),
+        )
         return success_count
 
     def _on_send_success(self, item_id: str, record_metadata):
@@ -94,7 +98,7 @@ class GEOINTKafkaProducer:
             item_id=item_id,
             topic=record_metadata.topic,
             partition=record_metadata.partition,
-            offset=record_metadata.offset
+            offset=record_metadata.offset,
         )
 
     def _on_send_error(self, item_id: str, exc: Exception):

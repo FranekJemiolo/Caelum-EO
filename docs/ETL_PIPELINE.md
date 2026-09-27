@@ -1,6 +1,6 @@
 # Project Caelum-EO: ETL & Streaming Raster Pipeline Specification
 
-**Repository Namespace:** `github.com/FranekJemiolo/Caelum-EO`  
+**Repository Namespace:** `github.com/FranekJemiolo/Caelum-EO`
 **Components:** `src/etl/cdse_client.py`, `src/etl/raster_processor.py`
 
 ---
@@ -39,11 +39,13 @@ sequenceDiagram
 ## 2. STAC Pagination & Query Protocol
 
 ### 2.1. Endpoints & Authentication
+
 - **STAC Catalog:** `https://catalogue.dataspace.copernicus.eu/stac`
 - **Identity Token Endpoint:** `https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token`
 - **S3 Direct Access:** `eodata.dataspace.copernicus.eu` with S3 keys generated in the CDSE dashboard.
 
 ### 2.2. Query Parameters
+
 ```python
 search = client.search(
     collections=["SENTINEL-2"],
@@ -53,6 +55,7 @@ search = client.search(
     max_items=100
 )
 ```
+
 - **Pagination Strategy:** Uses STAC cursor-based pagination with `pystac-client`'s internal generator to step through item pages transparently without memory buildup.
 
 ---
@@ -60,6 +63,7 @@ search = client.search(
 ## 3. Windowed Streaming Reads (Zero-Download Ingestion)
 
 Downloading full 1GB Level-2A `.SAFE` zip archives exhausts disk space and network bandwidth. Caelum-EO implements GDAL virtual file system range streaming:
+
 - **Protocol:** `rasterio` reads through `/vsicurl/` with HTTP byte-range headers (`Range: bytes=start-end`).
 - **Window Formulation:**
   ```python
@@ -75,14 +79,14 @@ Downloading full 1GB Level-2A `.SAFE` zip archives exhausts disk space and netwo
 
 Prithvi-EO-2.0 requires an exact 6-band input cube:
 
-| Band Key | Spectral Description | Native Resolution | Target Resolution | Resampling Algorithm |
-| :--- | :--- | :--- | :--- | :--- |
-| `B02` | Blue (490 nm) | 10m | 10m | None (Native) |
-| `B03` | Green (560 nm) | 10m | 10m | None (Native) |
-| `B04` | Red (665 nm) | 10m | 10m | None (Native) |
-| `B8A` | Narrow NIR (865 nm) | 20m | 10m | `Resampling.bilinear` |
-| `B11` | SWIR 1 (1610 nm) | 20m | 10m | `Resampling.bilinear` |
-| `B12` | SWIR 2 (2190 nm) | 20m | 10m | `Resampling.bilinear` |
+| Band Key | Spectral Description | Native Resolution | Target Resolution | Resampling Algorithm  |
+| :------- | :------------------- | :---------------- | :---------------- | :-------------------- |
+| `B02`    | Blue (490 nm)        | 10m               | 10m               | None (Native)         |
+| `B03`    | Green (560 nm)       | 10m               | 10m               | None (Native)         |
+| `B04`    | Red (665 nm)         | 10m               | 10m               | None (Native)         |
+| `B8A`    | Narrow NIR (865 nm)  | 20m               | 10m               | `Resampling.bilinear` |
+| `B11`    | SWIR 1 (1610 nm)     | 20m               | 10m               | `Resampling.bilinear` |
+| `B12`    | SWIR 2 (2190 nm)     | 20m               | 10m               | `Resampling.bilinear` |
 
 ---
 
@@ -90,25 +94,26 @@ Prithvi-EO-2.0 requires an exact 6-band input cube:
 
 The Sentinel-2 L2A product provides an `SCL` 20m raster classifying every pixel:
 
-| SCL Value | Description | Pipeline Action |
-| :---: | :--- | :--- |
-| `0` | No Data | Masked out (`0.0`) |
-| `1` | Saturated / Defective | Masked out (`0.0`) |
-| `3` | Cloud Shadows | **Masked out** (`0.0`) |
-| `4` | Vegetation | Retained |
-| `5` | Bare Soils | Retained |
-| `6` | Water Bodies | **Masked out** (unless coastal pier detection is configured) |
-| `7` | Low Probability Cloud | Retained |
-| `8` | Medium Probability Cloud | **Masked out** (`0.0`) |
-| `9` | High Probability Cloud | **Masked out** (`0.0`) |
-| `10` | Thin Cirrus | **Masked out** (`0.0`) |
-| `11` | Snow / Ice | Masked out (`0.0`) |
+| SCL Value | Description              | Pipeline Action                                              |
+| :-------: | :----------------------- | :----------------------------------------------------------- |
+|    `0`    | No Data                  | Masked out (`0.0`)                                           |
+|    `1`    | Saturated / Defective    | Masked out (`0.0`)                                           |
+|    `3`    | Cloud Shadows            | **Masked out** (`0.0`)                                       |
+|    `4`    | Vegetation               | Retained                                                     |
+|    `5`    | Bare Soils               | Retained                                                     |
+|    `6`    | Water Bodies             | **Masked out** (unless coastal pier detection is configured) |
+|    `7`    | Low Probability Cloud    | Retained                                                     |
+|    `8`    | Medium Probability Cloud | **Masked out** (`0.0`)                                       |
+|    `9`    | High Probability Cloud   | **Masked out** (`0.0`)                                       |
+|   `10`    | Thin Cirrus              | **Masked out** (`0.0`)                                       |
+|   `11`    | Snow / Ice               | Masked out (`0.0`)                                           |
 
 ---
 
 ## 6. Multi-Temporal Co-Registration
 
 To guarantee that pixel $(y, x)$ in $T_0$ maps to the identical physical geographic ground coordinate in $T_1$:
+
 1. Both rasters are projected into the target Coordinate Reference System (WGS 84 / UTM).
 2. `rasterio.warp.reproject` aligns $T_1$ to the affine transform grid of $T_0$.
 3. The resulting stacked tensor has shape `(2, 6, H, W)` where axis 0 is the temporal step ($T_0, T_1$).

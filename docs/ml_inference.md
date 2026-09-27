@@ -1,11 +1,12 @@
 # Machine Learning Architecture Specification
 
-**Repository:** `github.com/FranekJemiolo/Caelum-EO`  
+**Repository:** `github.com/FranekJemiolo/Caelum-EO`
 **Components:** `services/inference`
 
 ---
 
 ## 1. Two-Stage Inference Paradigm
+
 Processing high-resolution satellite imagery directly through heavy segmentation networks across vast territorial swathes is computationally prohibitive. `Project Caelum-EO` implements an optimized two-stage pipeline:
 
 ```mermaid
@@ -21,6 +22,7 @@ flowchart LR
 ---
 
 ## 2. Stage 1: NASA/IBM Prithvi-EO-2.0 Foundation Model
+
 - **Model Backbone:** `ibm-nasa-geospatial/Prithvi-EO-2.0-300M` (Vision Transformer Masked Autoencoder pre-trained on multi-temporal Copernicus Harmonized Landsat-Sentinel data).
 - **Temporal Stacking:** Input tensor is structured as `(2, 6, H, W)` representing two observation times across 6 optical/infrared bands:
   1. `B02`: Blue (490 nm)
@@ -35,6 +37,7 @@ flowchart LR
 ---
 
 ## 3. Stage 2a: YOLOv8-OBB (Oriented Bounding Boxes)
+
 - **Rationale:** Traditional axis-aligned bounding boxes fail to capture elongated, angled tactical installations (e.g. runways, revetted trench lines, piers). YOLOv8-OBB outputs `(cx, cy, w, h, angle)`.
 - **Target Vocabulary:**
   - `Logistics_Depot`
@@ -49,5 +52,6 @@ flowchart LR
 ---
 
 ## 4. Stage 2b: GeoSAM Zero-Shot Perimeter Vectorization
+
 - **Rationale:** Deep learning segmentation heads on low-resolution satellite imagery often produce blurry pixel blobs. GeoSAM takes the centroid point and bounding box from Stage 2a as visual prompts to segment the crisp physical roofline and perimeter.
 - **Topological Cleanup:** Douglas-Peucker simplification is applied to reduce vertex bloat while retaining high-fidelity geometric contours. Polygons are reprojected into WGS84 (`EPSG:4326`) and validated via `shapely.validation.make_valid`.

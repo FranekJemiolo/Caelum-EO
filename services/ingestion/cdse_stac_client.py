@@ -7,17 +7,18 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+
 import pystac_client
-import structlog
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import requests
+import structlog
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from services.ingestion.config import (
     Geofence,
+    IngestionConfig,
     STACAssetMeta,
     STACItemPayload,
-    IngestionConfig,
-    settings
+    settings,
 )
 
 logger = structlog.get_logger(__name__)
@@ -43,7 +44,7 @@ class CDSEStacClient:
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1.5, min=2, max=30),
         retry=retry_if_exception_type((requests.exceptions.RequestException, ConnectionError)),
-        reraise=True
+        reraise=True,
     )
     def search_geofence(
         self,
@@ -52,7 +53,7 @@ class CDSEStacClient:
         end_time: datetime,
         collections: Optional[List[str]] = None,
         max_cloud_cover: Optional[float] = None,
-        limit: int = 50
+        limit: int = 50,
     ) -> List[STACItemPayload]:
         """Query STAC API for Sentinel-1 and Sentinel-2 items within a geofence.
 
@@ -71,8 +72,12 @@ class CDSEStacClient:
             # CDSE standard collection naming
             collections = ["SENTINEL-2", "SENTINEL-1"]
 
-        cloud_limit = max_cloud_cover if max_cloud_cover is not None else self.config.default_cloud_cover_max
-        datetime_range = f"{start_time.strftime('%Y-%m-%dT%H:%M:%SZ')}/{end_time.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        cloud_limit = (
+            max_cloud_cover if max_cloud_cover is not None else self.config.default_cloud_cover_max
+        )
+        datetime_range = (
+            f"{start_time.strftime('%Y-%m-%dT%H:%M:%SZ')}/{end_time.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        )
 
         logger.info(
             "Executing STAC query",
@@ -80,7 +85,7 @@ class CDSEStacClient:
             bbox=geofence.bbox,
             datetime_range=datetime_range,
             collections=collections,
-            max_cloud_cover=cloud_limit
+            max_cloud_cover=cloud_limit,
         )
 
         try:
@@ -88,7 +93,7 @@ class CDSEStacClient:
                 collections=collections,
                 bbox=geofence.bbox,
                 datetime=datetime_range,
-                max_items=limit
+                max_items=limit,
             )
 
             results: List[STACItemPayload] = []
@@ -106,7 +111,7 @@ class CDSEStacClient:
                             "Skipping item due to excessive cloud cover",
                             item_id=item.id,
                             cloud_cover=cloud_cover,
-                            max_allowed=cloud_limit
+                            max_allowed=cloud_limit,
                         )
                         continue
 
@@ -130,7 +135,7 @@ class CDSEStacClient:
                     mgrs_tile=mgrs_tile,
                     geofence_id=geofence.id,
                     assets=filtered_assets,
-                    published_at=now_iso
+                    published_at=now_iso,
                 )
                 results.append(payload)
 
@@ -155,16 +160,12 @@ class CDSEStacClient:
             # Direct match or band alias match
             if normalized_key in target_keys or key in target_keys:
                 extracted[key] = STACAssetMeta(
-                    href=asset.href,
-                    type=asset.media_type,
-                    title=asset.title
+                    href=asset.href, type=asset.media_type, title=asset.title
                 )
             # Handle CDSE specific asset key naming if nested
             elif any(target in normalized_key for target in target_keys):
                 extracted[key] = STACAssetMeta(
-                    href=asset.href,
-                    type=asset.media_type,
-                    title=asset.title
+                    href=asset.href, type=asset.media_type, title=asset.title
                 )
 
         # If no specific bands matched (e.g. single product archive), keep visual or default assets
@@ -174,7 +175,7 @@ class CDSEStacClient:
                     extracted[k] = STACAssetMeta(
                         href=item.assets[k].href,
                         type=item.assets[k].media_type,
-                        title=item.assets[k].title
+                        title=item.assets[k].title,
                     )
 
         return extracted

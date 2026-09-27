@@ -6,13 +6,14 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 """
 
 from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 import shapely.geometry
-from shapely.validation import make_valid
 import structlog
+from shapely.validation import make_valid
 
-from services.inference.config import ModelSettings, inference_settings
 from services.inference.cluster_extractor import AnomalyCluster
+from services.inference.config import ModelSettings, inference_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -36,7 +37,7 @@ class GeoSAMVectorizer:
         cluster: AnomalyCluster,
         offset_row_col: Tuple[int, int],
         geo_bounds: List[float],
-        full_raster_shape: Tuple[int, int]
+        full_raster_shape: Tuple[int, int],
     ) -> Dict:
         """Extract a high-fidelity GeoJSON polygon for the infrastructure boundary.
 
@@ -79,7 +80,7 @@ class GeoSAMVectorizer:
                 [b_max_lon, b_min_lat],
                 [b_max_lon, b_max_lat],
                 [b_min_lon, b_max_lat],
-                [b_min_lon, b_min_lat]
+                [b_min_lon, b_min_lat],
             ]
 
         # Construct and simplify Shapely polygon
@@ -99,15 +100,12 @@ class GeoSAMVectorizer:
             "Vectorized infrastructure boundary",
             cluster_id=cluster.cluster_id,
             vertices_count=len(geo_coords),
-            geom_type=geojson_geometry.get("type")
+            geom_type=geojson_geometry.get("type"),
         )
         return geojson_geometry
 
     def _extract_boundary_contour(
-        self,
-        image_chip: np.ndarray,
-        cluster: AnomalyCluster,
-        offset_row_col: Tuple[int, int]
+        self, image_chip: np.ndarray, cluster: AnomalyCluster, offset_row_col: Tuple[int, int]
     ) -> List[Tuple[float, float]]:
         """Extract perimeter contour in global raster pixel space."""
         offset_r, offset_c = offset_row_col

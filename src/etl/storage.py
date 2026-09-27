@@ -11,12 +11,13 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 import io
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Optional
+
 import boto3
-from botocore.client import Config
-from botocore.exceptions import ClientError
 import numpy as np
 import structlog
+from botocore.client import Config
+from botocore.exceptions import ClientError
 
 logger = structlog.get_logger(__name__)
 
@@ -38,7 +39,7 @@ class ObjectStorageManager:
         access_key: str = S3_ACCESS_KEY,
         secret_key: str = S3_SECRET_KEY,
         region: str = S3_REGION,
-        fallback_local_dir: str = "./data/minio_storage"
+        fallback_local_dir: str = "./data/minio_storage",
     ):
         self.endpoint_url = endpoint_url
         self.access_key = access_key
@@ -46,7 +47,7 @@ class ObjectStorageManager:
         self.region = region
         self.fallback_local_dir = Path(fallback_local_dir)
         self.fallback_mode = False
-        self._s3_client = None
+        self._s3_client: Any = None
 
         self._init_connection()
 
@@ -59,7 +60,9 @@ class ObjectStorageManager:
                 aws_access_key_id=self.access_key,
                 aws_secret_access_key=self.secret_key,
                 region_name=self.region,
-                config=Config(signature_version="s3v4", connect_timeout=3, retries={"max_attempts": 2})
+                config=Config(
+                    signature_version="s3v4", connect_timeout=3, retries={"max_attempts": 2}
+                ),
             )
             # Healthcheck connection by listing buckets
             self._s3_client.list_buckets()
@@ -69,7 +72,7 @@ class ObjectStorageManager:
             logger.warning(
                 "MinIO/S3 unavailable; switching to resilient local filesystem object store",
                 fallback_path=str(self.fallback_local_dir),
-                error=str(exc)
+                error=str(exc),
             )
             self.fallback_mode = True
             for bucket in REQUIRED_BUCKETS:
@@ -84,9 +87,15 @@ class ObjectStorageManager:
                 try:
                     self._s3_client.create_bucket(Bucket=bucket)
                 except ClientError as err:
-                    logger.debug("Bucket already exists or handled concurrently", bucket=bucket, error=str(err))
+                    logger.debug(
+                        "Bucket already exists or handled concurrently",
+                        bucket=bucket,
+                        error=str(err),
+                    )
 
-    def upload_bytes(self, bucket: str, key: str, data: bytes, content_type: Optional[str] = None) -> str:
+    def upload_bytes(
+        self, bucket: str, key: str, data: bytes, content_type: Optional[str] = None
+    ) -> str:
         """Upload raw bytes to object storage."""
         if self.fallback_mode:
             dest = self.fallback_local_dir / bucket / key

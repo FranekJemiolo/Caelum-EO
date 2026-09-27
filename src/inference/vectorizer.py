@@ -12,15 +12,16 @@ import os
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 import psycopg2
-from pydantic import BaseModel, Field
 import rasterio.features
+import shapely.geometry
+import structlog
+from pydantic import BaseModel, Field
 from rasterio.transform import from_bounds
 from scipy import ndimage
-import shapely.geometry
 from shapely.validation import make_valid
-import structlog
 
 from src.inference.yolo_classifier import YOLOInfrastructureClassifier
 
@@ -36,6 +37,7 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "caelum_secure_password")
 
 class DetectionRecord(BaseModel):
     """Normalized intelligence record matching PostGIS infrastructure_detections table."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     geometry: Dict  # GeoJSON Polygon
     classification: str
@@ -57,7 +59,7 @@ class PostGISPersistence:
         dbname: str = POSTGRES_DB,
         user: str = POSTGRES_USER,
         password: str = POSTGRES_PASSWORD,
-        dry_run: bool = False
+        dry_run: bool = False,
     ):
         self.host = host
         self.port = port
@@ -77,14 +79,13 @@ class PostGISPersistence:
                     dbname=self.dbname,
                     user=self.user,
                     password=self.password,
-                    connect_timeout=3
+                    connect_timeout=3,
                 )
                 self._conn.autocommit = True
                 logger.info("Connected to PostGIS database", host=self.host, dbname=self.dbname)
             except Exception as exc:
                 logger.warning(
-                    "PostGIS unavailable; enabling dry-run persistence mode",
-                    error=str(exc)
+                    "PostGIS unavailable; enabling dry-run persistence mode", error=str(exc)
                 )
                 self.dry_run = True
         return self._conn
@@ -98,7 +99,7 @@ class PostGISPersistence:
                 "[DRY RUN] Persisted detection to memory ledger",
                 id=record.id,
                 classification=record.classification,
-                confidence=record.confidence
+                confidence=record.confidence,
             )
             return True
 
@@ -142,8 +143,8 @@ class PostGISPersistence:
                         record.detection_timestamp,
                         record.sensor_source,
                         record.raw_chip_s3_uri,
-                        json.dumps(record.stac_metadata)
-                    )
+                        json.dumps(record.stac_metadata),
+                    ),
                 )
             return True
         except Exception as exc:
@@ -158,7 +159,7 @@ class VectorizationEngine:
         self,
         db_handler: Optional[PostGISPersistence] = None,
         min_cluster_pixels: int = 20,
-        simplification_tolerance: float = 0.00002
+        simplification_tolerance: float = 0.00002,
     ):
         self.db = db_handler or PostGISPersistence()
         self.min_cluster_pixels = min_cluster_pixels
@@ -166,9 +167,7 @@ class VectorizationEngine:
         self.classifier = YOLOInfrastructureClassifier()
 
     def polygonize_binary_mask(
-        self,
-        binary_mask: np.ndarray,
-        bbox: List[float]
+        self, binary_mask: np.ndarray, bbox: List[float]
     ) -> List[Tuple[Dict, Tuple[int, int, int, int], int]]:
         """Extract closed GeoJSON polygons from binary mask using affine coordinate transformation.
 
@@ -199,7 +198,9 @@ class VectorizationEngine:
 
             # Feature submask for polygon extraction
             submask = (labeled_mask == feat_id).astype(np.uint8)
-            shapes = rasterio.features.shapes(submask, mask=(submask == 1), transform=affine_transform)
+            shapes = rasterio.features.shapes(
+                submask, mask=(submask == 1), transform=affine_transform
+            )
 
             for geom_dict, val in shapes:
                 if val == 1:
@@ -209,7 +210,9 @@ class VectorizationEngine:
                     # Douglas-Peucker topological simplification
                     simplified = poly.simplify(self.simplification_tol, preserve_topology=True)
                     if simplified.geom_type == "Polygon" and not simplified.is_empty:
-                        polygons.append((shapely.geometry.mapping(simplified), pixel_bbox, pixel_count))
+                        polygons.append(
+                            (shapely.geometry.mapping(simplified), pixel_bbox, pixel_count)
+                        )
 
         logger.info("Polygonized binary change mask", extracted_polygons=len(polygons))
         return polygons
@@ -223,7 +226,7 @@ class VectorizationEngine:
         baseline_timestamp: str,
         detection_timestamp: str,
         sensor_source: str = "Sentinel-2A-MSI-L2A",
-        stac_metadata: Optional[Dict] = None
+        stac_metadata: Optional[Dict] = None,
     ) -> List[DetectionRecord]:
         """End-to-end vectorization, YOLO classification, and PostGIS commit."""
         extracted_polygons = self.polygonize_binary_mask(binary_mask, bbox)
@@ -231,15 +234,12 @@ class VectorizationEngine:
 
         for geojson_geom, pixel_bbox, count in extracted_polygons:
             min_r, min_c, max_r, max_c = pixel_bbox
-            chip = full_raster_cube[:, min_r:max_r+1, min_c:max_c+1]
-            mean_prob = float(np.mean(prob_map[min_r:max_r+1, min_c:max_c+1]))
+            chip = full_raster_cube[:, min_r : max_r + 1, min_c : max_c + 1]
+            mean_prob = float(np.mean(prob_map[min_r : max_r + 1, min_c : max_c + 1]))
 
             # YOLOv8-OBB classification
             cls_result = self.classifier.classify_cluster(
-                chip=chip,
-                bbox=pixel_bbox,
-                pixel_count=count,
-                mean_anomaly_prob=mean_prob
+                chip=chip, bbox=pixel_bbox, pixel_count=count, mean_anomaly_prob=mean_prob
             )
 
             record = DetectionRecord(
@@ -249,7 +249,7 @@ class VectorizationEngine:
                 baseline_timestamp=baseline_timestamp,
                 detection_timestamp=detection_timestamp,
                 sensor_source=sensor_source,
-                stac_metadata=stac_metadata or {}
+                stac_metadata=stac_metadata or {},
             )
             records.append(record)
             self.db.insert_detection(record)
@@ -260,8 +260,8 @@ class VectorizationEngine:
 
 def run_standalone_pipeline():
     """Execute end-to-end synthetic detection, vectorization, and PostGIS ingestion."""
-    from src.inference.prithvi_detector import PrithviChangeDetector
     from scripts.generate_mock_data import create_synthetic_scene_pair
+    from src.inference.prithvi_detector import PrithviChangeDetector
 
     print("=== Starting Project Caelum-EO Vectorization & Ingestion Pipeline ===")
     detector = PrithviChangeDetector()
@@ -270,8 +270,8 @@ def run_standalone_pipeline():
 
     # 1. Synthesize multi-temporal scene pair
     t0, t1, _ = create_synthetic_scene_pair(height=128, width=128)
-    t0_float = (t0.astype(np.float32) / 10000.0)
-    t1_float = (t1.astype(np.float32) / 10000.0)
+    t0_float = t0.astype(np.float32) / 10000.0
+    t1_float = t1.astype(np.float32) / 10000.0
     temporal_stack = np.stack([t0_float, t1_float], axis=0)
 
     # 2. Run Prithvi change detection
@@ -287,7 +287,7 @@ def run_standalone_pipeline():
         baseline_timestamp="2026-05-15T08:30:00Z",
         detection_timestamp=datetime.now(timezone.utc).isoformat(),
         sensor_source="Sentinel-2A-MSI-L2A",
-        stac_metadata={"source": "Caelum-EO Synthetic Ingestion Engine"}
+        stac_metadata={"source": "Caelum-EO Synthetic Ingestion Engine"},
     )
     print(f"Successfully processed and committed {len(records)} infrastructure detection records.")
     for rec in records:
@@ -297,4 +297,3 @@ def run_standalone_pipeline():
 
 if __name__ == "__main__":
     run_standalone_pipeline()
-

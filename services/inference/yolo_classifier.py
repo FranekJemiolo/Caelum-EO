@@ -6,22 +6,26 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 """
 
 import os
-from typing import Dict, List, Optional, Tuple
-import numpy as np
-from pydantic import BaseModel
-import structlog
+from typing import Optional, Tuple
 
-from services.inference.config import ModelSettings, inference_settings
+import numpy as np
+import structlog
+from pydantic import BaseModel
+
 from services.inference.cluster_extractor import AnomalyCluster
+from services.inference.config import ModelSettings, inference_settings
 
 logger = structlog.get_logger(__name__)
 
 
 class ClassifiedDetection(BaseModel):
     """Infrastructure object detection output with oriented bounding box."""
+
     classification: str
     confidence: float
-    oriented_bbox: Optional[Tuple[float, float, float, float, float]] = None  # (cx, cy, w, h, angle_deg)
+    oriented_bbox: Optional[Tuple[float, float, float, float, float]] = (
+        None  # (cx, cy, w, h, angle_deg)
+    )
     cluster_id: int
 
 
@@ -41,6 +45,7 @@ class YOLOInfrastructureClassifier:
             logger.info("Loading YOLOv8-OBB model weights", weights_path=weights)
             try:
                 from ultralytics import YOLO
+
                 return YOLO(weights)
             except Exception as exc:
                 logger.warning("Ultralytics loading failed, using fallback engine", error=str(exc))
@@ -49,11 +54,7 @@ class YOLOInfrastructureClassifier:
             logger.info("Operating YOLOv8-OBB in spectral/morphological classification mode")
             return None
 
-    def classify_chip(
-        self,
-        image_chip: np.ndarray,
-        cluster: AnomalyCluster
-    ) -> ClassifiedDetection:
+    def classify_chip(self, image_chip: np.ndarray, cluster: AnomalyCluster) -> ClassifiedDetection:
         """Classify infrastructure type on a localized image chip.
 
         Args:
@@ -86,10 +87,12 @@ class YOLOInfrastructureClassifier:
                         classification=label,
                         confidence=conf,
                         oriented_bbox=xywhr,
-                        cluster_id=cluster.cluster_id
+                        cluster_id=cluster.cluster_id,
                     )
             except Exception as exc:
-                logger.warning("YOLO forward pass exception, falling back to heuristic", error=str(exc))
+                logger.warning(
+                    "YOLO forward pass exception, falling back to heuristic", error=str(exc)
+                )
 
         # Heuristic classifier based on morphological aspect ratio, area, and spectral reflectivity
         classification, confidence = self._heuristic_classify(image_chip, cluster)
@@ -97,16 +100,17 @@ class YOLOInfrastructureClassifier:
         return ClassifiedDetection(
             classification=classification,
             confidence=confidence,
-            oriented_bbox=(0.0, 0.0, float(cluster.pixel_bbox[3] - cluster.pixel_bbox[1]),
-                           float(cluster.pixel_bbox[2] - cluster.pixel_bbox[0]), 0.0),
-            cluster_id=cluster.cluster_id
+            oriented_bbox=(
+                0.0,
+                0.0,
+                float(cluster.pixel_bbox[3] - cluster.pixel_bbox[1]),
+                float(cluster.pixel_bbox[2] - cluster.pixel_bbox[0]),
+                0.0,
+            ),
+            cluster_id=cluster.cluster_id,
         )
 
-    def _heuristic_classify(
-        self,
-        chip: np.ndarray,
-        cluster: AnomalyCluster
-    ) -> Tuple[str, float]:
+    def _heuristic_classify(self, chip: np.ndarray, cluster: AnomalyCluster) -> Tuple[str, float]:
         """Classify target category using geometric footprint and spectral properties."""
         min_r, min_c, max_r, max_c = cluster.pixel_bbox
         h = max_r - min_r + 1

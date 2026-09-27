@@ -8,21 +8,23 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+
 import numpy as np
 import structlog
 from pydantic import BaseModel, Field
 
-from services.inference.config import ModelSettings, inference_settings
-from services.inference.prithvi_detector import PrithviChangeDetector
 from services.inference.cluster_extractor import SpatialClusterExtractor
-from services.inference.yolo_classifier import YOLOInfrastructureClassifier
+from services.inference.config import ModelSettings, inference_settings
 from services.inference.geosam_vectorizer import GeoSAMVectorizer
+from services.inference.prithvi_detector import PrithviChangeDetector
+from services.inference.yolo_classifier import YOLOInfrastructureClassifier
 
 logger = structlog.get_logger(__name__)
 
 
 class InfrastructureDetectionRecord(BaseModel):
     """Normalized payload ready for PostGIS 'infrastructure_detections' table."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     geometry: Dict  # GeoJSON Polygon (EPSG:4326)
     classification: str
@@ -47,7 +49,7 @@ class GEOINTInferencePipeline:
         geo_bounds: List[float],
         detection_date: Optional[str] = None,
         source_metadata: Optional[Dict] = None,
-        threshold: Optional[float] = None
+        threshold: Optional[float] = None,
     ) -> List[InfrastructureDetectionRecord]:
         """Run complete 2-stage inference over a multi-temporal satellite image pair.
 
@@ -61,8 +63,9 @@ class GEOINTInferencePipeline:
             List of detected infrastructure records with GeoJSON geometry, classification,
             confidence score, and source metadata.
         """
-        assert temporal_stack.ndim == 4 and temporal_stack.shape[0] == 2, \
-            "temporal_stack must have shape (2, 6, H, W)"
+        assert (
+            temporal_stack.ndim == 4 and temporal_stack.shape[0] == 2
+        ), "temporal_stack must have shape (2, 6, H, W)"
 
         date_str = detection_date or datetime.now(timezone.utc).isoformat()
         src_meta = source_metadata or {}
@@ -71,7 +74,7 @@ class GEOINTInferencePipeline:
         logger.info(
             "Starting GEOINT pipeline inference",
             raster_shape=(height, width),
-            geo_bounds=geo_bounds
+            geo_bounds=geo_bounds,
         )
 
         # Stage 1: Prithvi-EO Foundation Model Change Detection
@@ -79,9 +82,7 @@ class GEOINTInferencePipeline:
 
         # Stage 2: Cluster Extraction & Bounding Boxes
         clusters = self.cluster_extractor.extract_clusters(
-            binary_mask=binary_mask,
-            prob_map=prob_map,
-            geo_bounds=geo_bounds
+            binary_mask=binary_mask, prob_map=prob_map, geo_bounds=geo_bounds
         )
 
         if not clusters:
@@ -106,7 +107,7 @@ class GEOINTInferencePipeline:
                 cluster=cluster,
                 offset_row_col=offset,
                 geo_bounds=geo_bounds,
-                full_raster_shape=(height, width)
+                full_raster_shape=(height, width),
             )
 
             record = InfrastructureDetectionRecord(
@@ -114,7 +115,7 @@ class GEOINTInferencePipeline:
                 classification=classified.classification,
                 confidence=round(classified.confidence, 4),
                 detection_date=date_str,
-                source_imagery=src_meta
+                source_imagery=src_meta,
             )
             records.append(record)
 
