@@ -158,6 +158,102 @@ python -m src.api.main
 
 ---
 
+## 🔒 Security, Authentication & Role-Based Access Control (RBAC)
+
+Project Caelum-EO enforces OAuth2 Password Flow with signed JWT Bearer tokens and strict role-based access control (RBAC).
+
+### Default Operator Credentials
+
+| Operator Username   | Default Passphrase     | Clearance Role | Permissions & Capabilities                                |
+| :------------------ | :--------------------- | :------------- | :-------------------------------------------------------- |
+| **`admin`**         | `caelum_admin_2026!`   | `admin`        | Full operational system control & review reclassification |
+| **`analyst_viper`** | `caelum_analyst_2026!` | `analyst`      | Human-in-the-Loop triage verification (`PATCH /review`)   |
+| **`viewer_01`**     | `caelum_viewer_2026!`  | `viewer`       | Read-only access to maps, zones, and intelligence queue   |
+
+### API Security & RBAC Enforcement
+
+- **Protected Endpoints:** All `/api/v1/detections`, `/api/v1/zones/summary`, `/api/v1/triage/queue`, and `/api/v1/detections/:id/imagery` require a valid JWT Bearer header (`Authorization: Bearer <token>`).
+- **Review Restriction:** `PATCH /api/v1/detections/:id/review` is restricted strictly to `analyst` and `admin` roles. Requests from `viewer` roles are rejected with `HTTP 403 Forbidden`.
+- **UI Interceptor:** The React portal automatically appends the Bearer token to all outgoing requests via `authFetch` and redirects unauthenticated users to the Login Portal.
+
+---
+
+## 🗺️ High-Performance Dynamic Tile Servers
+
+To eliminate the GeoJSON browser bottleneck and avoid expensive disk-bound chip extraction, the Docker Compose stack includes specialized geospatial tile servers:
+
+### 1. Vector Tile Server (`Martin` - Port 3001)
+
+- Blazing-fast Rust-based tile server connected directly to PostGIS `infrastructure_detections`.
+- Streams Mapbox Vector Tiles (MVT): `http://localhost:3001/tiles/infrastructure_detections/{z}/{x}/{y}.pbf`.
+- Consumed by Deck.gl `MVTLayer` on the frontend, enabling smooth 60fps WebGL rendering of 100,000+ polygons.
+
+### 2. Dynamic Raster Server (`TiTiler` - Port 8001)
+
+- Dynamic Cloud-Optimized GeoTIFF (COG) tile server connected to MinIO/S3 (`caelum-raw`).
+- Streams dynamic multi-resolution bounding box crops: `http://localhost:8001/cog/crop/{minx},{miny},{maxx},{maxy}.png?url=...`.
+- Toggled directly in the Multi-Temporal Inspector to smoothly compare $T_0$ vs $T_1$ passes at any zoom level.
+
+---
+
+## 🚨 Proactive Observability & Data Lifecycle Management
+
+### 1. High-Priority Webhook Alerting (`src/api/webhooks.py`)
+
+- Automatically dispatches standardized SIEM JSON alert payloads whenever incoming ML detections exceed `priority_score > 0.85`.
+- Configure comma-separated webhook destinations via environment variable:
+  ```bash
+  export WEBHOOK_URLS="https://siem.defense.internal/alerts,https://hooks.slack.com/services/..."
+  ```
+
+### 2. Data Lifecycle Retention Pruner (`src/etl/pruner.py`)
+
+- Automatically prunes raw Sentinel GeoTIFF rasters older than 7 days from `caelum-raw` or local `data/raw/`, preventing disk exhaustion.
+- Cropped anomaly chips (`data/chips/`) and PostGIS vector records are permanently retained.
+- Run manually or schedule via cron:
+  ```bash
+  python -m src.etl.pruner --retention-days 7 --dir data/raw
+  # Dry-run scan:
+  python -m src.etl.pruner --dry-run
+  ```
+
+---
+
+## 🛡️ Bare-Metal Production Deployment (100% On-Premises & Air-Gapped)
+
+Project Caelum-EO is architected for **100% on-premises, fully local, or air-gapped bare-metal environments** with zero external cloud dependencies.
+
+### Production Network Hardening (`docker-compose.prod.yml`)
+
+The production Docker stack enforces strict network isolation:
+
+- **Exposed Host Interfaces:** Only the WebGL Analyst Portal (`port 3000`) and FastAPI Gateway (`port 8000`) are accessible to operators on the local network.
+- **Internalized Infrastructure:** PostGIS (`5432`), MinIO Object Storage (`9000/9001`), and Redpanda Event Streaming (`29092/9092`) have **no exposed host ports** and communicate strictly over the internal encrypted Docker bridge network (`caelum-net-prod`).
+- **Local Tile Servers:** Martin MVT (`3001`) and TiTiler (`8001`) are bound to `127.0.0.1` loopback for local browser rendering.
+- **Hardware-Accelerated GPU Passthrough:** The ML inference worker container utilizes `nvidia-container-toolkit` device reservations (`capabilities: [gpu]`) for direct bare-metal access to host NVIDIA GPUs (e.g. RTX 4090, A100, H100, L4, T4).
+
+### One-Command Deployment Automation (`./deploy.sh`)
+
+The `deploy.sh` script automates the complete bare-metal bootstrap process:
+
+1. **GPU & Driver Validation:** Queries `nvidia-smi` to verify installed NVIDIA drivers and GPU capabilities.
+2. **Cryptographic Secret Generation:** Automatically initializes a restricted `.env.prod` (`chmod 600`) with high-entropy random database passwords and JWT signing keys.
+3. **Local Storage Initialization:** Creates host directories for raw rasters (`data/raw/`), anomaly chips (`data/chips/`), and model weights (`weights/`).
+4. **Production Stack Launch:** Builds and starts the production container topology with health checks.
+
+```bash
+# Execute bare-metal production deployment:
+./deploy.sh
+
+# Monitor live production logs:
+docker compose -f docker-compose.prod.yml logs -f
+
+# Gracefully stop production stack:
+docker compose -f docker-compose.prod.yml down
+```
+
+---
+
 ## 📜 License
 
 Licensed under Apache 2.0. Maintained by [Franek Jemiolo](https://github.com/FranekJemiolo).

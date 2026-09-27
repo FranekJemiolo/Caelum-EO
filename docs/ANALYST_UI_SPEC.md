@@ -1,6 +1,6 @@
 # Project Caelum-EO: Analyst UI & HITL Triage Specification
 
-**Project:** Caelum-EO (`github.com/FranekJemiolo/Caelum-EO`)  
+**Project:** Caelum-EO (`github.com/FranekJemiolo/Caelum-EO`)
 **Target:** Automated Geospatial Intelligence (GEOINT) Infrastructure Detection Platform
 
 ---
@@ -32,6 +32,7 @@ flowchart TD
 ## 2. Component Specifications
 
 ### 2.1 Dual Visualization Modes (`MapComponent.tsx`)
+
 1. **Vector Bounding Box & Polygon Extraction Layer (`GeoJsonLayer`):**
    - High-contrast, extruded 3D polygon footprints based on model confidence elevation.
    - Exact tactical classification color codes:
@@ -49,6 +50,7 @@ flowchart TD
 ---
 
 ### 2.2 Priority Triage Drawer ("Hotlist") (`TriageHotlist.tsx`)
+
 - Collapsible right drawer ranking detected anomalies by descending `priority_score`.
 - Displays sensor pass timestamp, classification badge, and priority index ($P-0$ to $P-100$).
 - Clicking an anomaly triggers smooth camera flight (`flyTo`) centering the map directly on the target coordinates.
@@ -57,6 +59,7 @@ flowchart TD
 ---
 
 ### 2.3 Multi-Temporal Image Inspector (`MultiTemporalInspector.tsx`)
+
 - **Split-Screen Horizontal Swipe Comparison:**
   - $T_0$ Baseline satellite chip on the left.
   - $T_1$ Detection satellite chip on the right.
@@ -69,6 +72,7 @@ flowchart TD
 ---
 
 ### 2.4 Human-in-the-Loop (HITL) Review Modal (`ReviewModal.tsx`)
+
 - Rapid triage action buttons:
   - `[V] Verify Correct`: Confirms predicted classification.
   - `[M] Reclassify`: Opens dropdown allowing manual correction to any valid `infrastructure_class`.
