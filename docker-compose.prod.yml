@@ -1,0 +1,273 @@
+# Project Caelum-EO: Production Bare-Metal Docker Composition
+# Designed for 100% On-Premises, Fully Local, Air-Gapped Deployments
+# Hardware-Accelerated via NVIDIA Container Toolkit
+# Repository: github.com/FranekJemiolo/Caelum-EO
+
+services:
+  # 1. Spatial Database (PostGIS 15+) - Internal Network Only (No Host Port Exposed)
+  postgis:
+    image: postgis/postgis:15-3.3
+    container_name: caelum-postgis-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-caelum_geoint}
+      POSTGRES_USER: ${POSTGRES_USER:-caelum_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
+    # Notice: Port 5432 is strictly internal to caelum-net-prod
+    volumes:
+      - postgis_prod_data:/var/lib/postgresql/data
+      - ./src/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - caelum-net-prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-caelum_user} -d ${POSTGRES_DB:-caelum_geoint}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Object Storage (MinIO) - Internal Network Only (No Host Port Exposed)
+  minio:
+    image: minio/minio:latest
+    container_name: caelum-minio-prod
+    restart: unless-stopped
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-caelum_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MinIO password required}
+    # Notice: Ports 9000/9001 are strictly internal to caelum-net-prod
+    volumes:
+      - minio_prod_data:/data
+    networks:
+      - caelum-net-prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: caelum-minio-init-prod
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-caelum_minio_admin} ${MINIO_ROOT_PASSWORD};
+      /usr/bin/mc mb --ignore-existing local/caelum-raw;
+      /usr/bin/mc mb --ignore-existing local/caelum-interim;
+      /usr/bin/mc mb --ignore-existing local/caelum-chips;
+      exit 0;
+      "
+    networks:
+      - caelum-net-prod
+
+  # 3. Lightweight Event Streaming Broker (Redpanda) - Internal Network Only
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    container_name: caelum-redpanda-prod
+    restart: unless-stopped
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 1024M
+      - --overprovisioned
+      - --kafka-addr internal://0.0.0.0:29092
+      - --advertise-kafka-addr internal://redpanda:29092
+    # Notice: Port 9092 is strictly internal to caelum-net-prod
+    networks:
+      - caelum-net-prod
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -i healthy || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 4. ETL Ingestion Worker Container
+  worker-etl:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    container_name: caelum-worker-etl-prod
+    restart: unless-stopped
+    command: ["python", "-m", "src.ingestion.stac_poller"]
+    depends_on:
+      redpanda:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:29092
+      KAFKA_TOPIC_STAC_INGEST: geoint-stac-ingest
+      S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-caelum_minio_admin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      CAELUM_MOCK_INGEST: ${CAELUM_MOCK_INGEST:-false}
+    volumes:
+      - ./data:/app/data
+    networks:
+      - caelum-net-prod
+
+  # 5. ML Inference Worker Container with Bare-Metal NVIDIA GPU Passthrough
+  worker-inference:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    container_name: caelum-worker-inference-prod
+    restart: unless-stopped
+    command: ["python", "-m", "src.inference.detector"]
+    depends_on:
+      postgis:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+    environment:
+      POSTGRES_HOST: postgis
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-caelum_geoint}
+      POSTGRES_USER: ${POSTGRES_USER:-caelum_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:29092
+      S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-caelum_minio_admin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      PRIORITY_ALERT_THRESHOLD: ${PRIORITY_ALERT_THRESHOLD:-0.85}
+      WEBHOOK_URLS: ${WEBHOOK_URLS:-}
+    volumes:
+      - ./weights:/app/weights:ro
+      - ./data:/app/data
+    # Direct Bare-Metal GPU Hardware Acceleration
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - caelum-net-prod
+
+  # 6. Data Lifecycle Pruner (Daily Cron Task)
+  worker-pruner:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    container_name: caelum-worker-pruner-prod
+    restart: unless-stopped
+    command: >
+      /bin/sh -c "
+      echo 'Starting Data Retention Pruner background daemon...';
+      while true; do
+        python -m src.etl.pruner --retention-days $${RAW_DATA_RETENTION_DAYS:-7} --dir /app/data/raw;
+        sleep 86400;
+      done
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-caelum_minio_admin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      RAW_BUCKET_NAME: caelum-raw
+      RAW_DATA_RETENTION_DAYS: ${RAW_DATA_RETENTION_DAYS:-7}
+    volumes:
+      - ./data:/app/data
+    networks:
+      - caelum-net-prod
+
+  # 7. High-Performance Vector Tile Server (Martin MVT) - Local Host Interface Only
+  martin:
+    image: maplibre/martin:latest
+    container_name: caelum-martin-prod
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-caelum_user}:${POSTGRES_PASSWORD}@postgis:5432/${POSTGRES_DB:-caelum_geoint}
+    depends_on:
+      postgis:
+        condition: service_healthy
+    networks:
+      - caelum-net-prod
+
+  # 8. Dynamic Raster Tile Server (TiTiler for COGs) - Local Host Interface Only
+  titiler:
+    image: ghcr.io/developmentseed/titiler:latest
+    container_name: caelum-titiler-prod
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8000"
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-caelum_minio_admin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_S3_ENDPOINT: http://minio:9000
+      AWS_VIRTUAL_HOSTING: "FALSE"
+      CPL_VSIL_CURL_ALLOWED_EXTENSIONS: ".tif,.tiff"
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - caelum-net-prod
+
+  # 9. Hardened Production FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    container_name: caelum-api-prod
+    restart: unless-stopped
+    command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgis
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-caelum_geoint}
+      POSTGRES_USER: ${POSTGRES_USER:-caelum_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT secret key required}
+      WEBHOOK_URLS: ${WEBHOOK_URLS:-}
+      PRIORITY_ALERT_THRESHOLD: ${PRIORITY_ALERT_THRESHOLD:-0.85}
+    volumes:
+      - ./data:/app/data:ro
+    networks:
+      - caelum-net-prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 10. Hardened Deck.gl WebGL Analyst UI
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: caelum-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - VITE_PORT=3000
+      - VITE_API_URL=http://localhost:${API_PORT:-8000}
+      - VITE_TILE_SERVER_URL=http://localhost:3001
+      - VITE_TITILER_URL=http://localhost:8001
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - caelum-net-prod
+
+networks:
+  caelum-net-prod:
+    driver: bridge
+
+volumes:
+  postgis_prod_data:
+    driver: local
+  minio_prod_data:
+    driver: local
