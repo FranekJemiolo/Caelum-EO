@@ -42,9 +42,9 @@ services:
       timeout: 5s
       retries: 5
 
-  postgis:
-    image: postgis/postgis:16-3.4-alpine
-    container_name: caelum-postgis
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: caelum-postgis-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-caelum_geoint}
       POSTGRES_USER: ${POSTGRES_USER:-caelum_user}
@@ -53,7 +53,7 @@ services:
       - "5432:5432"
     volumes:
       - postgis_data:/var/lib/postgresql/data
-      - ./services/database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./src/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - caelum-network
     healthcheck:
@@ -62,63 +62,49 @@ services:
       timeout: 5s
       retries: 5
 
-  ingestion-worker:
+  workers:
     build:
       context: .
-      dockerfile: services/ingestion/Dockerfile
-    container_name: caelum-ingestion-worker
+      dockerfile: Dockerfile.workers
+    container_name: caelum-workers
     depends_on:
       kafka:
+        condition: service_healthy
+      db:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_TOPIC_STAC_INGEST: geoint-stac-ingest
       CDSE_STAC_API_URL: https://catalogue.dataspace.copernicus.eu/stac
-      POLL_INTERVAL_SECONDS: 300
-    volumes:
-      - ./services/ingestion:/app/services/ingestion
-      - ./data:/app/data
-    networks:
-      - caelum-network
-
-  inference-worker:
-    build:
-      context: .
-      dockerfile: services/inference/Dockerfile
-    container_name: caelum-inference-worker
-    depends_on:
-      kafka:
-        condition: service_healthy
-      postgis:
-        condition: service_healthy
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      POSTGRES_HOST: postgis
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB:-caelum_geoint}
       POSTGRES_USER: ${POSTGRES_USER:-caelum_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caelum_secure_password}
+      PYTHONUNBUFFERED: "1"
     volumes:
-      - ./services/inference:/app/services/inference
+      - ./src:/app/src
       - ./weights:/app/weights
+      - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     networks:
       - caelum-network
 
-  api:
+  frontend:
     build:
-      context: .
-      dockerfile: services/ingestion/Dockerfile
-    container_name: caelum-api
-    command: ["uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    depends_on:
-      postgis:
-        condition: service_healthy
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: caelum-frontend
     ports:
-      - "8000:8000"
+      - "3000:3000"
     environment:
-      POSTGRES_HOST: postgis
-      POSTGRES_DB: ${POSTGRES_DB:-caelum_geoint}
-      POSTGRES_USER: ${POSTGRES_USER:-caelum_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caelum_secure_password}
+      - VITE_PORT=3000
     networks:
       - caelum-network
 
