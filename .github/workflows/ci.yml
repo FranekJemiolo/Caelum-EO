@@ -95,9 +95,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgdal-dev gdal-bin postgresql-client
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+
       - name: Install Python Dependencies via uv
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
           uv pip install --system -r requirements.txt pytest-cov
 
       - name: Apply PostGIS Database Schema
@@ -158,4 +163,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate Docker Compose Configuration
-        run: docker compose config --quiet
+        run: |
+          docker compose config --quiet
+          docker compose -f docker-compose.prod.yml config --quiet

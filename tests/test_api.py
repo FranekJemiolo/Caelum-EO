@@ -157,3 +157,146 @@ def test_patch_review_false_positive():
     data = response.json()
     assert data["review_status"] == "FALSE_POSITIVE"
     assert data["priority_score"] == 0.0
+
+
+def test_login_auth_flow():
+    """Verify OAuth2 password token endpoint."""
+    res_ok = client.post(
+        "/api/v1/auth/token",
+        data={"username": "admin", "password": "caelum_admin_2026!"},
+    )
+    assert res_ok.status_code == 200
+    token_data = res_ok.json()
+    assert "access_token" in token_data
+    assert token_data["token_type"] == "bearer"
+    assert token_data["role"] == "admin"
+
+    res_fail = client.post(
+        "/api/v1/auth/token",
+        data={"username": "admin", "password": "wrong_password"},
+    )
+    assert res_fail.status_code == 401
+
+
+def test_auth_rbac_forbidden():
+    """Verify viewer role cannot submit reviews (403 Forbidden)."""
+    viewer_token = create_access_token({"sub": "viewer_01", "role": "viewer"})
+    viewer_client = TestClient(app)
+    viewer_client.headers = {"Authorization": f"Bearer {viewer_token}"}
+
+    det_id = "a1b2c3d4-e5f6-47a8-b901-23456789abcd"
+    res = viewer_client.patch(
+        f"/api/v1/detections/{det_id}/review",
+        json={"review_status": "VERIFIED"},
+    )
+    assert res.status_code == 403
+
+
+def test_service_sql_mock_paths():
+    """Verify TriageService execution when database connection is active."""
+    from unittest.mock import MagicMock
+
+    from src.api.service import ReviewPayload, ReviewStatus, TriageService
+
+    svc = TriageService()
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+    mock_conn.closed = False
+    svc._conn = mock_conn
+
+    # 1. get_detections SQL branch
+    mock_cur.fetchall.return_value = [
+        {
+            "id": "a1b2c3d4-e5f6-47a8-b901-23456789abcd",
+            "geometry": {"type": "Polygon", "coordinates": []},
+            "classification": "RADAR_DOME",
+            "confidence": 0.95,
+            "area_sq_meters": 1000.0,
+            "baseline_timestamp": None,
+            "detection_timestamp": None,
+            "sensor_source": "Sentinel-2",
+            "zone_id": "ZONE-SUWALKI-CORRIDOR",
+            "review_status": "PENDING_REVIEW",
+            "verified_class": None,
+            "priority_score": 0.9,
+            "reviewer_notes": None,
+            "reviewed_by": None,
+            "reviewed_at": None,
+            "baseline_chip_path": None,
+            "detection_chip_path": None,
+            "stac_metadata": {},
+        }
+    ]
+    dets = svc.get_detections(limit=1)
+    assert len(dets["features"]) == 1
+
+    # 2. get_zones_summary SQL branch
+    mock_cur.fetchall.return_value = [
+        {
+            "id": "ZONE-SUWALKI-CORRIDOR",
+            "name": "Suwalki Gap",
+            "alert_level": "HIGH",
+            "boundary": {"type": "Polygon", "coordinates": []},
+            "total_detections": 10,
+            "new_detections_24h": 2,
+            "new_detections_7d": 5,
+            "high_priority_count": 3,
+            "classification_breakdown": {"RADAR_DOME": 3},
+        }
+    ]
+    zones = svc.get_zones_summary()
+    assert len(zones) == 1
+    assert zones[0].id == "ZONE-SUWALKI-CORRIDOR"
+
+    # 3. get_triage_queue SQL branch
+    mock_cur.fetchall.return_value = [
+        {
+            "id": "a1b2c3d4-e5f6-47a8-b901-23456789abcd",
+            "geometry": {"type": "Polygon", "coordinates": []},
+            "classification": "RADAR_DOME",
+            "confidence": 0.95,
+            "area_sq_meters": 1000.0,
+            "detection_timestamp": None,
+            "sensor_source": "Sentinel-2",
+            "zone_id": "ZONE-SUWALKI-CORRIDOR",
+            "review_status": "PENDING_REVIEW",
+            "priority_score": 0.9,
+            "baseline_chip_path": None,
+            "detection_chip_path": None,
+        }
+    ]
+    queue = svc.get_triage_queue(limit=5)
+    assert len(queue) == 1
+
+    # 4. get_detection_by_id SQL branch
+    mock_cur.fetchone.return_value = {
+        "id": "a1b2c3d4-e5f6-47a8-b901-23456789abcd",
+        "geometry": {"type": "Polygon", "coordinates": []},
+        "classification": "RADAR_DOME",
+        "confidence": 0.95,
+        "area_sq_meters": 1000.0,
+        "baseline_timestamp": None,
+        "detection_timestamp": None,
+        "sensor_source": "Sentinel-2",
+        "zone_id": "ZONE-SUWALKI-CORRIDOR",
+        "review_status": "PENDING_REVIEW",
+        "verified_class": None,
+        "priority_score": 0.9,
+        "reviewer_notes": None,
+        "reviewed_by": None,
+        "reviewed_at": None,
+        "baseline_chip_path": None,
+        "detection_chip_path": None,
+        "stac_metadata": {},
+    }
+    det = svc.get_detection_by_id("a1b2c3d4-e5f6-47a8-b901-23456789abcd")
+    assert det is not None
+
+    # 5. submit_review SQL branch
+    rev_res = svc.submit_review(
+        "a1b2c3d4-e5f6-47a8-b901-23456789abcd",
+        ReviewPayload(review_status=ReviewStatus.VERIFIED, reviewer_notes="Confirmed"),
+    )
+    assert rev_res is not None
+    assert rev_res.review_status == ReviewStatus.VERIFIED

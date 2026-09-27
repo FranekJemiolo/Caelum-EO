@@ -76,3 +76,46 @@ def test_raster_processor_assembly(mock_geotiff_dir):
     assert tensor_pair.dtype == np.float32
     # Verify normalization range [0.0, 1.0]
     assert 0.0 <= tensor_pair.min() <= tensor_pair.max() <= 1.0
+
+
+def test_cdse_client_remote_search_mocked():
+    """Test CDSEClient search_scenes against mocked pystac-client."""
+    from unittest.mock import MagicMock
+
+    client = CDSEClient(mock_mode=False)
+    mock_stac_client = MagicMock()
+    mock_item = MagicMock()
+    mock_item.id = "S2A_LIVE_MOCK"
+    mock_item.properties = {"cloudCover": 5.0, "s2:mgrs_tile": "34UFB", "platform": "sentinel-2b"}
+    mock_item.datetime = datetime(2026, 9, 27, tzinfo=timezone.utc)
+    mock_item.bbox = [23.1, 54.1, 23.4, 54.4]
+
+    mock_asset = MagicMock()
+    mock_asset.href = "https://mock.copernicus.eu/B02.tif"
+    mock_asset.media_type = "image/tiff"
+    mock_item.assets = {"B02": mock_asset, "SCL": MagicMock(href="https://mock/scl.tif")}
+
+    mock_search = MagicMock()
+    mock_search.items.return_value = [mock_item]
+    mock_stac_client.search.return_value = mock_search
+    client._client = mock_stac_client
+
+    scenes = client.search_scenes(
+        bbox=[23.1, 54.1, 23.4, 54.4],
+        start_time=datetime(2026, 9, 1, tzinfo=timezone.utc),
+        end_time=datetime(2026, 9, 27, tzinfo=timezone.utc),
+    )
+    assert len(scenes) == 1
+    assert scenes[0].item_id == "S2A_LIVE_MOCK"
+    assert scenes[0].is_mock is False
+
+
+def test_raster_processor_fallback():
+    """Verify fallback behavior for unreadable bands."""
+    processor = RasterAlignmentProcessor(output_dim=32)
+    fallback_band = processor.read_windowed_band(
+        band_href="invalid://nonexistent-path.tif",
+        bbox=[23.0, 54.0, 23.5, 54.5],
+        target_shape=(32, 32),
+    )
+    assert fallback_band.shape == (32, 32)

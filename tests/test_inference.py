@@ -89,3 +89,23 @@ def test_inference_coordinator_stac_event():
     assert prob.shape == (256, 256)
     assert len(records) > 0
     assert records[0].stac_metadata["item_id"] == "S2A_MSIL2A_TEST_EVENT"
+
+
+def test_yolo_classifier_direct():
+    from src.inference.yolo_classifier import VALID_CLASSES, YOLOInfrastructureClassifier
+
+    classifier = YOLOInfrastructureClassifier()
+    chip = np.random.uniform(0.1, 0.9, size=(6, 32, 32)).astype(np.float32)
+
+    # Test radar-like anomaly
+    res_radar = classifier.classify_cluster(
+        chip=chip, bbox=(10, 10, 20, 20), pixel_count=45, mean_anomaly_prob=0.88
+    )
+    assert res_radar.label in VALID_CLASSES
+    assert 0.0 <= res_radar.confidence <= 1.0
+
+    # Test elongated runway-like anomaly
+    res_runway = classifier.classify_cluster(
+        chip=chip, bbox=(10, 10, 15, 60), pixel_count=200, mean_anomaly_prob=0.92
+    )
+    assert res_runway.label in VALID_CLASSES
