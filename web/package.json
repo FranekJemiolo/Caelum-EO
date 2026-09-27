@@ -1,0 +1,31 @@
+{
+  "name": "@franekjemiolo/caelum-eo-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Project Caelum-EO: Automated GEOINT Deck.gl React Visualization Platform",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FranekJemiolo/Caelum-EO.git"
+  },
+  "author": "Franek Jemiolo <https://github.com/FranekJemiolo>",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "deck.gl": "^9.0.0",
+    "lucide-react": "^0.378.0",
+    "maplibre-gl": "^4.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-map-gl": "^7.1.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.2.11"
+  }
+}

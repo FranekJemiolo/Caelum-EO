@@ -81,6 +81,47 @@ services:
     networks:
       - caelum-network
 
+  inference-worker:
+    build:
+      context: .
+      dockerfile: services/inference/Dockerfile
+    container_name: caelum-inference-worker
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgis:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      POSTGRES_HOST: postgis
+      POSTGRES_DB: ${POSTGRES_DB:-caelum_geoint}
+      POSTGRES_USER: ${POSTGRES_USER:-caelum_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caelum_secure_password}
+    volumes:
+      - ./services/inference:/app/services/inference
+      - ./weights:/app/weights
+    networks:
+      - caelum-network
+
+  api:
+    build:
+      context: .
+      dockerfile: services/ingestion/Dockerfile
+    container_name: caelum-api
+    command: ["uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      postgis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_HOST: postgis
+      POSTGRES_DB: ${POSTGRES_DB:-caelum_geoint}
+      POSTGRES_USER: ${POSTGRES_USER:-caelum_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caelum_secure_password}
+    networks:
+      - caelum-network
+
 networks:
   caelum-network:
     driver: bridge

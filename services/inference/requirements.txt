@@ -1,0 +1,10 @@
+torch>=2.2.0
+torchvision>=0.17.0
+ultralytics>=8.1.0
+scipy>=1.11.0
+numpy>=1.26.0,<2.0.0
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+shapely>=2.0.3
+structlog>=24.1.0
+opencv-python-headless>=4.9.0

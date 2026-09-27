@@ -17,6 +17,7 @@
      - `services/ingestion`: CDSE STAC client, Kafka producers, stream consumers, spatial alignment.
      - `services/inference`: Prithvi-EO-2.0 change detection service, YOLOv8-OBB classification, GeoSAM vectorizer.
      - `services/database`: PostGIS migrations, spatial indexing, seed definitions.
+     - `services/api`: FastAPI REST/GeoJSON bridge for frontend data queries.
      - `web`: React + Deck.gl + MapLibre client with temporal timeline scrubber.
      - `docs`: Architecture diagrams, API specs, data dictionaries.
 2. **Metadata-First Ingestion Pattern:**
@@ -24,7 +25,7 @@
    - Polling workers push lightweight JSON STAC metadata payloads to Kafka (`geoint-stac-ingest`).
    - Consumer workers download windowed sub-tiles or cloud-optimized GeoTIFFs (COGs) via range requests dynamically, drastically saving network bandwidth and IOPS.
 3. **Kafka Broker Architecture:**
-   - Standard Kafka 7.5 cluster with Zookeeper (or KRaft mode) to ensure distributed pub-sub decoupled processing for variable satellite revisit schedules.
+   - Standard Kafka 7.5 cluster with Zookeeper to ensure distributed pub-sub decoupled processing for variable satellite revisit schedules.
 
 ---
 
@@ -32,7 +33,7 @@
 *Date: September 27, 2026*
 
 ### Technical Decisions
-1. **STAC API Client:** Selected `pystac-client` combined with `requests` and Pydantic v2 schemas (`STACItemPayload`, `IngestConfig`).
+1. **STAC API Client:** Selected `pystac-client` combined with `requests` and Pydantic v2 schemas (`STACItemPayload`, `IngestionConfig`).
 2. **Copernicus Data Space Ecosystem (CDSE):**
    - CDSE endpoint: `https://catalogue.dataspace.copernicus.eu/stac`
    - Configurable collection identifiers: `SENTINEL-2` (L2A bottom-of-atmosphere reflectance) and `SENTINEL-1` (GRD backscatter).
@@ -41,3 +42,73 @@
    - Kafka message keys use the MGRS tile or geopolitical geofence ID to preserve temporal ordering per spatial cell.
 4. **Band Mapping for Prithvi:**
    - Sentinel-2 metadata maps assets B02 (Blue), B03 (Green), B04 (Red), B8A (Narrow NIR), B11 (SWIR 1), B12 (SWIR 2) required by Prithvi 6-band input specifications.
+
+---
+
+## Entry 003 - Pytest Testing Strategy & Python Management with uv
+*Date: September 27, 2026*
+
+### Technical Decisions
+1. **Python Environment Management with `uv`:**
+   - Switched virtual environment and package installation to astral-sh `uv`.
+   - Environment created with CPython 3.11.14 (`uv venv --python 3.11`).
+   - Lightning-fast deterministic resolution for heavy geospatial wheels (`rasterio`, `shapely`, `torch`).
+2. **Unit Test Coverage:**
+   - Created test suites in `services/ingestion/tests/`:
+     - `test_config.py`: Schema validation, defaults, geofence coordinate ranges.
+     - `test_stac_client.py`: Mocked CDSE STAC search responses, cloud cover threshold cut-offs (>20%), required 6-band extraction.
+     - `test_kafka_producer.py`: Keyed partition routing, dry-run memory buffer, batch publishing.
+     - `test_poll_worker.py`: Cycle execution and in-memory scene deduplication preventing repeated Kafka message publishing.
+     - `test_alignment.py`: Array windowing, temporal pair creation (2, 6, H, W), Scene Classification Layer (SCL) cloud/water masking.
+   - Result: 100% test pass rate across ingestion components.
+
+---
+
+## Entry 004 - Foundation Model Temporal Change Detection (Prithvi-EO-2.0)
+*Date: September 27, 2026*
+
+### Technical Decisions
+1. **Model Selection Rationale:**
+   - Foundation Model: `ibm-nasa-geospatial/Prithvi-EO-2.0-300M`.
+   - Pre-trained on 100+ countries with self-supervised temporal masking. Outperforms classical pixel-difference, NDVI differencing, or standard ResNet change models by understanding seasonal and sun-angle phenology.
+2. **Input Tensor Specification:**
+   - Temporal pairs structured as `(2, 6, H, W)`:
+     - Dim 0: Time A (baseline reference) and Time B (newly acquired image).
+     - Dim 1: 6 bands (Blue, Green, Red, Narrow NIR, SWIR1, SWIR2).
+     - Spatial dimensions: Resampled to 10m Ground Sample Distance (GSD).
+3. **MMSegmentation Head:**
+   - Decoder takes dual-temporal backbone features and absolute difference embeddings `|f1 - f0|`, projecting into change probability logits.
+   - When running in deployment environments without pre-downloaded 1.2GB weights checkpoints, the architecture includes a deterministic spectral-distance baseline mode to ensure continuous operational availability.
+
+---
+
+## Entry 005 - YOLOv8-OBB Classification & GeoSAM Zero-Shot Vectorization
+*Date: September 27, 2026*
+
+### Technical Decisions
+1. **Oriented Bounding Boxes (YOLOv8-OBB):**
+   - Standard axis-aligned boxes include excessive non-target background when detecting tactical infrastructure (e.g. diagonal runway strips, long naval berths, revetted battery berms).
+   - OBB outputs `(cx, cy, w, h, angle_degrees)` to isolate the specific object footprint.
+2. **Target Ontology:**
+   - `Logistics_Depot`, `Radar_Dome`, `Airfield_Runway`, `SAM_Battery_Site`, `Hardened_Shelter`, `Naval_Pier_Berth`, `Fuel_Storage_Tank`, `Vehicle_Staging_Area`.
+3. **GeoSAM Boundary Segmentation:**
+   - Bridges the gap between bounding boxes and GIS polygons. Uses Segment Anything visual prompting (centroid + bounding box) to isolate the physical perimeter.
+   - Applies Douglas-Peucker topological simplification (`shapely`) to avoid multi-thousand-vertex polygon bloat while preserving architectural roofline contours in WGS84 (`EPSG:4326`).
+
+---
+
+## Entry 006 - PostGIS Spatial Schema & Deck.gl React Visualization Layer
+*Date: September 27, 2026*
+
+### Technical Decisions
+1. **PostGIS Storage:**
+   - `infrastructure_detections` table equipped with `GIST (geometry)` index for sub-10ms bounding box queries (`ST_Intersects`).
+   - B-Tree index on `detection_date` for timeline scrubber queries and covering index for index-only scans.
+2. **FastAPI Bridge:**
+   - Exposes `/api/detections` with bbox, temporal window, and classification filtering, outputting standard GeoJSON `FeatureCollection`.
+3. **Deck.gl React Frontend:**
+   - Deck.gl 9.0 `GeoJsonLayer` over CartoDB Dark Matter style via MapLibre GL.
+   - Dynamic 3D extrusion with height proportional to detection confidence.
+   - Tactically-styled temporal scrubber component with automated 3-day step animation playback.
+   - Instant categorical filtering and minimum confidence slider.
+   - Feature inspection drawer displaying sensor metadata, platform name, and intelligence notes.

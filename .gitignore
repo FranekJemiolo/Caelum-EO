@@ -43,7 +43,7 @@ venv.bak/
 *.swo
 
 # Geospatial Data & Model Weights
-data/
+/data/
 *.tif
 *.tiff
 *.vrt
