@@ -1,0 +1,161 @@
+name: Caelum-EO CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # Job 1: Linting, Formatting & Type Hygiene
+  # ----------------------------------------------------------------------------
+  lint-and-format:
+    name: Lint, Format & Types
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: "src/frontend/package-lock.json"
+
+      - name: Install Frontend Dependencies
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Cache Pre-commit Environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-${{ runner.os }}-
+
+      - name: Install Pre-commit & UV
+        run: |
+          pip install --upgrade pip
+          pip install pre-commit ruff mypy pydantic types-requests types-PyYAML
+
+      - name: Run Pre-commit Hooks
+        run: pre-commit run --all-files
+
+  # ----------------------------------------------------------------------------
+  # Job 2: Backend Integration & Unit Tests with Coverage Gate
+  # ----------------------------------------------------------------------------
+  backend-tests:
+    name: Backend Tests & PostGIS Integration
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_DB: caelum_geoint
+          POSTGRES_USER: caelum_user
+          POSTGRES_PASSWORD: caelum_secure_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U caelum_user -d caelum_geoint"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports:
+          - 9000:9000
+          - 9001:9001
+        options: >-
+          server /data --console-address ":9001"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install System Geospatial Libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdal-dev gdal-bin postgresql-client
+
+      - name: Install Python Dependencies via uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv pip install --system -r requirements.txt pytest-cov
+
+      - name: Apply PostGIS Database Schema
+        run: |
+          PGPASSWORD=caelum_secure_password psql -h localhost -p 5432 -U caelum_user -d caelum_geoint -f src/db/init.sql
+
+      - name: Execute Backend Tests with Coverage
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: caelum_geoint
+          POSTGRES_USER: caelum_user
+          POSTGRES_PASSWORD: caelum_secure_password
+          S3_ENDPOINT_URL: http://localhost:9000
+          AWS_ACCESS_KEY_ID: minioadmin
+          AWS_SECRET_ACCESS_KEY: minioadmin
+          CAELUM_MOCK_INGEST: "true"
+        run: |
+          pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=80
+
+  # ----------------------------------------------------------------------------
+  # Job 3: Frontend Build & Lint Verification
+  # ----------------------------------------------------------------------------
+  frontend-quality:
+    name: Frontend Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: "src/frontend/package-lock.json"
+
+      - name: Install Dependencies
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: src/frontend
+        run: npm run lint
+
+      - name: Build Production WebGL Bundle
+        working-directory: src/frontend
+        run: npm run build
+
+  # ----------------------------------------------------------------------------
+  # Job 4: Docker Compose Orchestration Validation
+  # ----------------------------------------------------------------------------
+  docker-validation:
+    name: Docker Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose Configuration
+        run: docker compose config --quiet
