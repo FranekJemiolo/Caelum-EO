@@ -52,7 +52,7 @@ search = client.search(
     bbox=[min_lon, min_lat, max_lon, max_lat],
     datetime=f"{start_utc}/{end_utc}",
     query={"eo:cloud_cover": {"lt": 20.0}},
-    max_items=100
+    max_items=100,
 )
 ```
 
@@ -66,8 +66,10 @@ Downloading full 1GB Level-2A `.SAFE` zip archives exhausts disk space and netwo
 
 - **Protocol:** `rasterio` reads through `/vsicurl/` with HTTP byte-range headers (`Range: bytes=start-end`).
 - **Window Formulation:**
+
   ```python
   from rasterio.windows import from_bounds
+
   with rasterio.open(f"/vsicurl/{cog_url}") as src:
       window = from_bounds(min_x, min_y, max_x, max_y, transform=src.transform)
       band_data = src.read(1, window=window, out_shape=(target_h, target_w))

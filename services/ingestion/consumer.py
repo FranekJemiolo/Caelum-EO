@@ -113,9 +113,9 @@ class SpatialAlignmentProcessor:
         Expected output shape: (2, 6, H, W)
         Timestamps: Index 0 = Baseline (T0), Index 1 = Newly acquired (T1).
         """
-        assert (
-            t0_stack.shape == t1_stack.shape
-        ), f"Shape mismatch: {t0_stack.shape} vs {t1_stack.shape}"
+        assert t0_stack.shape == t1_stack.shape, (
+            f"Shape mismatch: {t0_stack.shape} vs {t1_stack.shape}"
+        )
         assert t0_stack.shape[0] == 6, f"Expected 6 bands for Prithvi, got {t0_stack.shape[0]}"
         # Stack along temporal axis
         temporal_tensor = np.stack([t0_stack, t1_stack], axis=0)

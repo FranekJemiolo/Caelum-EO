@@ -63,9 +63,9 @@ class GEOINTInferencePipeline:
             List of detected infrastructure records with GeoJSON geometry, classification,
             confidence score, and source metadata.
         """
-        assert (
-            temporal_stack.ndim == 4 and temporal_stack.shape[0] == 2
-        ), "temporal_stack must have shape (2, 6, H, W)"
+        assert temporal_stack.ndim == 4 and temporal_stack.shape[0] == 2, (
+            "temporal_stack must have shape (2, 6, H, W)"
+        )
 
         date_str = detection_date or datetime.now(timezone.utc).isoformat()
         src_meta = source_metadata or {}

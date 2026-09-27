@@ -15,25 +15,33 @@ repos:
       - id: check-added-large-files
         args: ["--maxkb=10240"]
 
-  # 2. Python Quality: Ruff (Linter & Formatter)
-  #    Uses the official hook which ships its own binary — no venv needed.
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.10
+  # 2. Python Quality: Ruff — local hook so it uses the SAME binary version
+  #    as the project lockfile (uv.lock), preventing version drift between
+  #    pre-commit's isolated env and the project venv.
+  - repo: local
     hooks:
-      - id: ruff
-        args: [--fix]
+      - id: ruff-lint
+        name: ruff lint (uv run)
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, markdown]
+        pass_filenames: true
+
       - id: ruff-format
+        name: ruff format (uv run)
+        entry: uv run ruff format
+        language: system
+        types_or: [python, markdown]
+        pass_filenames: true
 
   # 3. Python Type Checking via uv run (uses the project .venv)
   - repo: local
     hooks:
       - id: mypy
         name: mypy (uv run)
-        entry: uv run mypy
+        entry: uv run mypy src/ tests/ --ignore-missing-imports
         language: system
         types: [python]
-        args: [--ignore-missing-imports]
-        files: ^(src|tests)/
         pass_filenames: false
 
   # 4. Frontend Formatting: Prettier
@@ -49,7 +57,7 @@ repos:
             src/frontend/package-lock\.json
           )
 
-  # 5. Frontend Linting: ESLint (via uv-adjacent npm)
+  # 5. Frontend Linting: ESLint (via npm)
   - repo: local
     hooks:
       - id: frontend-eslint
