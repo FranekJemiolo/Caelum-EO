@@ -50,3 +50,11 @@
 - **Alternatives Considered:** Single shared local directory vs. three-bucket MinIO/S3 object storage topology (`caelum-raw`, `caelum-interim`, `caelum-chips`).
 - **Decision & Rationale:** Established a three-tier object storage topology using MinIO locally and S3 in the cloud. Raw windowed rasters are cached in `caelum-raw`, multi-temporal 6-band tensor cubes are queued in `caelum-interim`, and verification chips are indexed in `caelum-chips`.
 - **Impact:** Complete cloud-agnostic parity between local developer environments and cloud deployments.
+
+---
+
+## [2026-09-27] - Phase 2: Local Storage, Synthetic Data & Streaming ETL Engine
+- **Context:** Developers must be able to run and test the complete satellite ETL flow locally without connecting to external cloud services or needing Copernicus portal credentials.
+- **Alternatives Considered:** Downloading live test scenes from the internet vs. generating deterministic synthetic multi-band GeoTIFF pairs with EPSG:4326 metadata.
+- **Decision & Rationale:** Implemented `scripts/generate_mock_data.py` to synthesize co-registered T0/T1 scenes with authentic reflectance values for 6 optical bands and SCL. Created `src/etl/storage.py` providing MinIO/S3 object store abstraction with local filesystem fallback, `src/etl/cdse_client.py` with offline mock fallback, and `src/etl/raster_processor.py` for bilinear resampling and SCL cloud masking.
+- **Impact:** 100% offline standalone capability, reproducible unit tests, and seamless switching between mock and live CDSE streams.
