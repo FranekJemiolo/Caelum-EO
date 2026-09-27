@@ -164,3 +164,17 @@ Expanding the architectural rigor of Project Caelum-EO to support a production-g
    - Multi-model simulation: Categorizes structures via YOLOv8-OBB geometric footprint heuristics and simulates GeoSAM zero-shot perimeter tracing with Douglas-Peucker topological simplification.
    - Persistence layer: `PostGISWriter` executes parameterized SQL batch inserts via `psycopg2` using `ST_SetSRID(ST_GeomFromGeoJSON(...), 4326)`.
    - Tested with synthetic 2-cluster raster, validating polygon closure and coordinate reprojection into EPSG:4326.
+
+---
+
+## Entry 011 - Task D: Database Migration Initialization Script
+*Date: September 27, 2026*
+
+### Implementation & Tradeoffs
+1. **Module:** `src/db/init.sql`
+2. **Core Decisions:**
+   - Designed for mounting into `postgis/postgis:15-3.3` at `/docker-entrypoint-initdb.d/init.sql`.
+   - Enables `uuid-ossp` and `postgis` extensions.
+   - Creates primary table `infrastructure_detections` with Polygon geometry constraint in WGS 84 (`EPSG:4326`).
+   - Builds explicit `GIST` spatial index, temporal index, and covering spatial index.
+   - Seeds 5 realistic operational targets across Suwalki Gap to enable immediate visual testing.
