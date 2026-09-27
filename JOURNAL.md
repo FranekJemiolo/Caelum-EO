@@ -151,3 +151,16 @@ Expanding the architectural rigor of Project Caelum-EO to support a production-g
    - Enforces 6-band radiometric normalization with Copernicus Sentinel-2 Level-2A surface reflectance parameters.
    - Implemented `InferenceCoordinator` Kafka listener consuming from `geoint-stac-ingest`, simulating windowed COG raster alignment and producing high-fidelity structural change masks.
    - Tested and verified with synthetic input generating 2,475 anomaly pixels on a 256x256 grid.
+
+---
+
+## Entry 010 - Task C: Vectorization & PostGIS Storage Pipeline
+*Date: September 27, 2026*
+
+### Implementation & Tradeoffs
+1. **Module:** `src/inference/vectorizer.py`
+2. **Core Decisions:**
+   - Morphological segmentation: Uses `scipy.ndimage.label` connected components to isolate bounding boxes of anomalous change from Prithvi binary masks.
+   - Multi-model simulation: Categorizes structures via YOLOv8-OBB geometric footprint heuristics and simulates GeoSAM zero-shot perimeter tracing with Douglas-Peucker topological simplification.
+   - Persistence layer: `PostGISWriter` executes parameterized SQL batch inserts via `psycopg2` using `ST_SetSRID(ST_GeomFromGeoJSON(...), 4326)`.
+   - Tested with synthetic 2-cluster raster, validating polygon closure and coordinate reprojection into EPSG:4326.
