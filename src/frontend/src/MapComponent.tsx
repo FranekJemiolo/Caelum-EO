@@ -13,15 +13,19 @@ import {
   Eye,
   CheckSquare,
   Cpu,
+  LogOut,
+  ShieldCheck,
 } from "lucide-react";
 
 import {
+  AuthUser,
   DetectionFeature,
   DetectionFeatureCollection,
   InfrastructureClass,
   ReviewPayload,
   ZoneSummary,
 } from "./types";
+import { authFetch } from "./auth";
 import { TriageHotlist } from "./components/TriageHotlist";
 import { MultiTemporalInspector } from "./components/MultiTemporalInspector";
 import { ReviewModal } from "./components/ReviewModal";
@@ -227,10 +231,14 @@ export default function MapComponent({
   apiUrl = "http://localhost:8000",
   tileServerUrl = "http://localhost:3001",
   titilerUrl = "http://localhost:8001",
+  currentUser,
+  onLogout,
 }: {
   apiUrl?: string;
   tileServerUrl?: string;
   titilerUrl?: string;
+  currentUser?: AuthUser | null;
+  onLogout?: () => void;
 }) {
   const [data, setData] =
     useState<DetectionFeatureCollection>(SEED_GEOINT_DATA);
@@ -259,8 +267,8 @@ export default function MapComponent({
 
   // Fetch live detections & zones
   useEffect(() => {
-    fetch(`${apiUrl}/api/v1/detections`)
-      .then((res) => res.json())
+    authFetch(`${apiUrl}/api/v1/detections`, {}, onLogout)
+      .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (json && json.features && json.features.length > 0) {
           setData(json);
@@ -270,15 +278,15 @@ export default function MapComponent({
         // Fallback to seed data
       });
 
-    fetch(`${apiUrl}/api/v1/zones/summary`)
-      .then((res) => res.json())
+    authFetch(`${apiUrl}/api/v1/zones/summary`, {}, onLogout)
+      .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (Array.isArray(json)) {
           setZones(json);
         }
       })
       .catch(() => {});
-  }, [apiUrl]);
+  }, [apiUrl, onLogout]);
 
   // Automated temporal playback animation
   useEffect(() => {
@@ -337,13 +345,14 @@ export default function MapComponent({
     payload: ReviewPayload,
   ) => {
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `${apiUrl}/api/v1/detections/${detectionId}/review`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         },
+        onLogout,
       );
       if (res.ok) {
         const updated = await res.json();
@@ -568,6 +577,41 @@ export default function MapComponent({
             </div>
           </div>
         </div>
+
+        {/* Operator Identity & Clearance Banner */}
+        {currentUser && (
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono">
+            <div className="flex items-center gap-2">
+              <ShieldCheck
+                size={14}
+                className={
+                  currentUser.role === "admin"
+                    ? "text-rose-400"
+                    : currentUser.role === "analyst"
+                      ? "text-cyan-400"
+                      : "text-emerald-400"
+                }
+              />
+              <div>
+                <div className="font-bold text-slate-200 leading-tight">
+                  {currentUser.username}
+                </div>
+                <div className="text-[9px] text-slate-400 uppercase font-mono">
+                  CLEARANCE: {currentUser.role}
+                </div>
+              </div>
+            </div>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                title="Sign Out Operator"
+                className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+              >
+                <LogOut size={13} />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Dual Mode Layer & Vector Tile Toggle */}
         <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-800">

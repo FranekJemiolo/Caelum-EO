@@ -222,3 +222,34 @@ ON CONFLICT (id) DO UPDATE SET
     priority_score = EXCLUDED.priority_score,
     baseline_chip_path = EXCLUDED.baseline_chip_path,
     detection_chip_path = EXCLUDED.detection_chip_path;
+
+-- 3. User Authentication & Role-Based Access Control (RBAC)
+DO $$ BEGIN
+    CREATE TYPE user_role AS ENUM (
+        'viewer',
+        'analyst',
+        'admin'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(64) UNIQUE NOT NULL,
+    hashed_password VARCHAR(256) NOT NULL,
+    role user_role DEFAULT 'viewer',
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed default users with bcrypt hashed passwords:
+-- admin: caelum_admin_2026!
+-- analyst_viper: caelum_analyst_2026!
+-- viewer_01: caelum_viewer_2026!
+INSERT INTO users (username, hashed_password, role) VALUES
+    ('admin', '$2b$12$81zbUvn/NDN7d6h7ow/zoeHH8gjAw1Gh/hWwsVYDmeFekgZI9hU3q', 'admin'),
+    ('analyst_viper', '$2b$12$6/AV15SQyXfiE/AV0Ac2NOBBjKxLrsXQswhzCWkZjnMoZsEWSqGZC', 'analyst'),
+    ('viewer_01', '$2b$12$NP6EpRFqvxI3bhyK4SA.V.mAo20aC3NOhSiS.cgWAbhb78TxwX6SW', 'viewer')
+ON CONFLICT (username) DO UPDATE SET
+    hashed_password = EXCLUDED.hashed_password,
+    role = EXCLUDED.role;

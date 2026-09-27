@@ -15,11 +15,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from PIL import Image
 
+from src.api.auth import User, get_current_user, require_roles
+from src.api.auth import router as auth_router
 from src.api.models import (
     ImageryResponse,
     ReviewPayload,
@@ -35,6 +37,8 @@ app = FastAPI(
     docs_url="/docs",
     openapi_url="/openapi.json",
 )
+
+app.include_router(auth_router)
 
 # Enable CORS for local and staging development
 app.add_middleware(
@@ -67,6 +71,7 @@ def get_detections(
     zone_id: Optional[str] = Query(None, description="Zone identifier"),
     limit: int = Query(100, ge=1, le=1000, description="Max features to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
+    current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Retrieve detected infrastructure vectors formatted as GeoJSON FeatureCollection."""
     return triage_service.get_detections(
@@ -82,7 +87,7 @@ def get_detections(
 
 
 @app.get("/api/v1/zones/summary", response_model=List[ZoneSummary])
-def get_zones_summary() -> List[ZoneSummary]:
+def get_zones_summary(current_user: User = Depends(get_current_user)) -> List[ZoneSummary]:
     """Retrieve aggregated detection metrics grouped by strategic surveillance zone."""
     return triage_service.get_zones_summary()
 
@@ -90,13 +95,17 @@ def get_zones_summary() -> List[ZoneSummary]:
 @app.get("/api/v1/triage/queue")
 def get_triage_queue(
     limit: int = Query(50, ge=1, le=200, description="Max triage queue items to return"),
+    current_user: User = Depends(get_current_user),
 ) -> List[Dict[str, Any]]:
     """Retrieve pending review detections ranked by descending priority score."""
     return triage_service.get_triage_queue(limit=limit)
 
 
 @app.get("/api/v1/detections/{detection_id}/imagery", response_model=ImageryResponse)
-def get_detection_imagery(detection_id: str) -> ImageryResponse:
+def get_detection_imagery(
+    detection_id: str,
+    current_user: User = Depends(get_current_user),
+) -> ImageryResponse:
     """Retrieve satellite image chip references and sensor metadata for inspection."""
     detection = triage_service.get_detection_by_id(detection_id)
     if not detection:
@@ -118,7 +127,11 @@ def get_detection_imagery(detection_id: str) -> ImageryResponse:
 
 
 @app.get("/api/v1/detections/{detection_id}/imagery/{layer_type}")
-def get_detection_chip_image(detection_id: str, layer_type: str) -> Response:
+def get_detection_chip_image(
+    detection_id: str,
+    layer_type: str,
+    current_user: User = Depends(get_current_user),
+) -> Response:
     """Stream binary PNG image chip for t0 baseline, t1 monitor, or difference mask."""
     if layer_type not in ["t0", "t1", "mask"]:
         raise HTTPException(
@@ -165,8 +178,11 @@ def get_detection_chip_image(detection_id: str, layer_type: str) -> Response:
 def patch_detection_review(
     detection_id: str,
     payload: ReviewPayload,
+    current_user: User = Depends(require_roles(["analyst", "admin"])),
 ) -> ReviewResponse:
     """Submit Human-in-the-Loop review, update classification, and log audit trail."""
+    if not payload.reviewed_by or payload.reviewed_by == "Analyst":
+        payload.reviewed_by = current_user.username
     result = triage_service.submit_review(detection_id=detection_id, payload=payload)
     if not result:
         raise HTTPException(

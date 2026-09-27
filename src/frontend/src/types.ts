@@ -72,3 +72,16 @@ export interface ImageryMetadata {
   detection_timestamp: string;
   stac_metadata: Record<string, any>;
 }
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  role: "viewer" | "analyst" | "admin";
+}
+
+export interface AuthTokenResponse {
+  access_token: string;
+  token_type: string;
+  role: "viewer" | "analyst" | "admin";
+  username: string;
+}

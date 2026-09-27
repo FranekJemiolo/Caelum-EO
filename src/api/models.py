@@ -28,7 +28,7 @@ class ReviewPayload(BaseModel):
     review_status: ReviewStatus
     verified_class: Optional[InfrastructureClass] = None
     reviewer_notes: Optional[str] = Field(None, max_length=2000)
-    reviewed_by: str = Field(..., min_length=2, max_length=128)
+    reviewed_by: Optional[str] = Field(None, max_length=128)
 
 
 class ReviewResponse(BaseModel):

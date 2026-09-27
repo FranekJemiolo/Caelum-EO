@@ -664,7 +664,7 @@ class TriageService:
             verified_class=payload.verified_class,
             priority_score=new_priority,
             reviewer_notes=payload.reviewer_notes,
-            reviewed_by=payload.reviewed_by,
+            reviewed_by=payload.reviewed_by or "analyst",
             reviewed_at=now_iso,
             message="Detection review committed successfully and audit trail logged.",
         )

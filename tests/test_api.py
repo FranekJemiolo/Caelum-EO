@@ -2,9 +2,12 @@
 
 from fastapi.testclient import TestClient
 
+from src.api.auth import create_access_token
 from src.api.main import app
 
 client = TestClient(app)
+admin_token = create_access_token({"sub": "admin", "role": "admin"})
+client.headers = {"Authorization": f"Bearer {admin_token}"}
 
 
 def test_health_check():
