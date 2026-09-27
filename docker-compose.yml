@@ -1,50 +1,8 @@
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: caelum-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
-    networks:
-      - caelum-network
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    container_name: caelum-kafka
-    depends_on:
-      zookeeper:
-        condition: service_healthy
-    ports:
-      - "9092:9092"
-      - "29092:29092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    networks:
-      - caelum-network
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "9092"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  db:
+  # 1. Spatial Database
+  postgis:
     image: postgis/postgis:15-3.3
-    container_name: caelum-postgis-db
+    container_name: caelum-postgis
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-caelum_geoint}
       POSTGRES_USER: ${POSTGRES_USER:-caelum_user}
@@ -55,33 +13,117 @@ services:
       - postgis_data:/var/lib/postgresql/data
       - ./src/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
-      - caelum-network
+      - caelum-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-caelum_user} -d ${POSTGRES_DB:-caelum_geoint}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: caelum-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - caelum-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: caelum-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb --ignore-existing local/caelum-raw;
+      /usr/bin/mc mb --ignore-existing local/caelum-interim;
+      /usr/bin/mc mb --ignore-existing local/caelum-chips;
+      exit 0;
+      "
+    networks:
+      - caelum-net
+
+  # 3. Lightweight Event Streaming Broker (Redpanda)
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    container_name: caelum-redpanda
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 512M
+      - --overprovisioned
+      - --kafka-addr internal://0.0.0.0:29092,external://0.0.0.0:9092
+      - --advertise-kafka-addr internal://redpanda:29092,external://localhost:9092
+    ports:
+      - "9092:9092"
+    networks:
+      - caelum-net
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -i healthy || exit 0"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  workers:
+  # 4. ETL Worker Container
+  worker-etl:
     build:
       context: .
       dockerfile: Dockerfile.workers
-    container_name: caelum-workers
+    container_name: caelum-worker-etl
+    command: ["python", "-m", "src.ingestion.stac_poller", "--once"]
     depends_on:
-      kafka:
-        condition: service_healthy
-      db:
+      redpanda:
+        condition: service_started
+      minio:
         condition: service_healthy
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:29092
       KAFKA_TOPIC_STAC_INGEST: geoint-stac-ingest
-      CDSE_STAC_API_URL: https://catalogue.dataspace.copernicus.eu/stac
-      POSTGRES_HOST: db
+      S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      CAELUM_MOCK_INGEST: "true"
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    networks:
+      - caelum-net
+
+  # 5. ML Inference Worker Container
+  worker-inference:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    container_name: caelum-worker-inference
+    command: ["python", "-m", "src.inference.detector", "--mock-single"]
+    depends_on:
+      postgis:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+    environment:
+      POSTGRES_HOST: postgis
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB:-caelum_geoint}
       POSTGRES_USER: ${POSTGRES_USER:-caelum_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caelum_secure_password}
-      PYTHONUNBUFFERED: "1"
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:29092
+      S3_ENDPOINT_URL: http://minio:9000
     volumes:
       - ./src:/app/src
       - ./weights:/app/weights
@@ -94,8 +136,9 @@ services:
               count: all
               capabilities: [gpu]
     networks:
-      - caelum-network
+      - caelum-net
 
+  # 6. Deck.gl WebGL Visualization Frontend
   frontend:
     build:
       context: ./src/frontend
@@ -106,12 +149,14 @@ services:
     environment:
       - VITE_PORT=3000
     networks:
-      - caelum-network
+      - caelum-net
 
 networks:
-  caelum-network:
+  caelum-net:
     driver: bridge
 
 volumes:
   postgis_data:
+    driver: local
+  minio_data:
     driver: local

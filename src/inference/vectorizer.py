@@ -256,3 +256,45 @@ class VectorizationEngine:
 
         logger.info("Committed vectorized intelligence", records_count=len(records))
         return records
+
+
+def run_standalone_pipeline():
+    """Execute end-to-end synthetic detection, vectorization, and PostGIS ingestion."""
+    from src.inference.prithvi_detector import PrithviChangeDetector
+    from scripts.generate_mock_data import create_synthetic_scene_pair
+
+    print("=== Starting Project Caelum-EO Vectorization & Ingestion Pipeline ===")
+    detector = PrithviChangeDetector()
+    db_handler = PostGISPersistence()
+    engine = VectorizationEngine(db_handler=db_handler, min_cluster_pixels=10)
+
+    # 1. Synthesize multi-temporal scene pair
+    t0, t1, _ = create_synthetic_scene_pair(height=128, width=128)
+    t0_float = (t0.astype(np.float32) / 10000.0)
+    t1_float = (t1.astype(np.float32) / 10000.0)
+    temporal_stack = np.stack([t0_float, t1_float], axis=0)
+
+    # 2. Run Prithvi change detection
+    binary_mask, prob_map = detector.detect_changes(temporal_stack, threshold=0.55)
+    print(f"Detected {int(np.sum(binary_mask))} change pixels across (128, 128) grid.")
+
+    # 3. Vectorize and commit to PostGIS
+    records = engine.process_and_persist(
+        binary_mask=binary_mask,
+        prob_map=prob_map,
+        full_raster_cube=t1_float,
+        bbox=[23.10, 54.05, 23.35, 54.25],
+        baseline_timestamp="2026-05-15T08:30:00Z",
+        detection_timestamp=datetime.now(timezone.utc).isoformat(),
+        sensor_source="Sentinel-2A-MSI-L2A",
+        stac_metadata={"source": "Caelum-EO Synthetic Ingestion Engine"}
+    )
+    print(f"Successfully processed and committed {len(records)} infrastructure detection records.")
+    for rec in records:
+        print(f" - [{rec.classification}] Confidence: {rec.confidence:.1%} (ID: {rec.id})")
+    return records
+
+
+if __name__ == "__main__":
+    run_standalone_pipeline()
+

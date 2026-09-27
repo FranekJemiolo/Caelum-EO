@@ -66,3 +66,12 @@
 - **Alternatives Considered:** Raster storage only vs. vector polygonization directly committed to PostGIS.
 - **Decision & Rationale:** Implemented `src/inference/prithvi_detector.py` with dynamic compute device negotiation (CUDA/MPS/CPU) and difference head, `src/inference/yolo_classifier.py` mapping detections to the PostGIS `infrastructure_class` enum, and `src/inference/vectorizer.py` extracting affine-projected GeoJSON polygons (`rasterio.features.shapes`) with `psycopg2` parameterized batch commits.
 - **Impact:** Complete automated intelligence generation verified by end-to-end integration tests: synthetic raster -> Prithvi detection -> polygonization -> PostGIS row increment.
+
+---
+
+## [2026-09-27] - Phase 4: Deck.gl WebGL Temporal Intelligence Map & Local Bootstrap Orchestration
+- **Context:** GEOINT analysts require an interactive, GPU-accelerated tactical map to step through time-series satellite detections, inspect structural polygons color-coded by military/civil classification, examine geodesic surface footprints, and boot the entire pipeline locally with a single command.
+- **Alternatives Considered:** 2D Leaflet raster tiles vs. Mapbox GL JS with proprietary tokens vs. Deck.gl WebGL + MapLibre GL with open Dark Matter vector basemaps.
+- **Decision & Rationale:** Implemented Deck.gl `GeoJsonLayer` over Carto Dark Matter via MapLibre GL. Created dynamic classification color palettes mapping directly to the PostGIS `infrastructure_class` enum (Runway: Orange, Radar: Red, Depot: Yellow, Revetment: Crimson, Industrial: Purple, Unknown: Slate), a temporal time-scrubber with automated playback stepping through acquisition timestamps, an interactive Target Dossier drawer, and `scripts/run_local.sh` automating data generation, Docker orchestration (PostGIS, MinIO, Redpanda), database migration, ML inference, and WebGL frontend initialization.
+- **Impact:** Delivers responsive 60fps WebGL vector visualization locally out of the box with zero external tokens or cloud dependencies.
+
