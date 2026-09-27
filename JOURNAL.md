@@ -58,3 +58,11 @@
 - **Alternatives Considered:** Downloading live test scenes from the internet vs. generating deterministic synthetic multi-band GeoTIFF pairs with EPSG:4326 metadata.
 - **Decision & Rationale:** Implemented `scripts/generate_mock_data.py` to synthesize co-registered T0/T1 scenes with authentic reflectance values for 6 optical bands and SCL. Created `src/etl/storage.py` providing MinIO/S3 object store abstraction with local filesystem fallback, `src/etl/cdse_client.py` with offline mock fallback, and `src/etl/raster_processor.py` for bilinear resampling and SCL cloud masking.
 - **Impact:** 100% offline standalone capability, reproducible unit tests, and seamless switching between mock and live CDSE streams.
+
+---
+
+## [2026-09-27] - Phase 3: Multi-Stage ML Inference, Polygonization & PostGIS Persistence
+- **Context:** An end-to-end integration is required connecting dual-temporal image cubes to foundation model inference, oriented classification, and spatial database persistence with geodesic measurements.
+- **Alternatives Considered:** Raster storage only vs. vector polygonization directly committed to PostGIS.
+- **Decision & Rationale:** Implemented `src/inference/prithvi_detector.py` with dynamic compute device negotiation (CUDA/MPS/CPU) and difference head, `src/inference/yolo_classifier.py` mapping detections to the PostGIS `infrastructure_class` enum, and `src/inference/vectorizer.py` extracting affine-projected GeoJSON polygons (`rasterio.features.shapes`) with `psycopg2` parameterized batch commits.
+- **Impact:** Complete automated intelligence generation verified by end-to-end integration tests: synthetic raster -> Prithvi detection -> polygonization -> PostGIS row increment.
