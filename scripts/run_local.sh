@@ -77,8 +77,7 @@ DOCKER_AVAILABLE=false
 if [ "$SKIP_DOCKER" = false ] && command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     DOCKER_AVAILABLE=true
     echo -e "${GREEN}[✓] Docker daemon is running.${NC}"
-    docker compose up -d postgis minio minio-init redpanda
-
+    docker compose up -d postgis minio minio-init redpanda martin titiler
 
     # Wait for PostGIS to accept connections
     echo -e "${YELLOW}[...] Waiting for PostGIS spatial database readiness...${NC}"
@@ -137,6 +136,8 @@ if [ -d "$FRONTEND_DIR" ]; then
     echo -e "${CYAN}${BOLD}==========================================================================${NC}"
     echo -e "  ${BOLD}WebGL Tactical HUD:${NC}     http://localhost:3000"
     echo -e "  ${BOLD}PostGIS Database:${NC}       localhost:5432 (Database: caelum_geoint)"
+    echo -e "  ${BOLD}Martin Vector Tiles:${NC}   http://localhost:3001"
+    echo -e "  ${BOLD}TiTiler Dynamic Raster:${NC} http://localhost:8001"
     echo -e "  ${BOLD}MinIO Object Console:${NC}   http://localhost:9001 (User: minioadmin / Pass: minioadmin)"
     echo -e "  ${BOLD}MinIO S3 Endpoint:${NC}      http://localhost:9000"
     echo -e "  ${BOLD}Redpanda Event Broker:${NC} localhost:9092"
@@ -148,9 +149,9 @@ if [ -d "$FRONTEND_DIR" ]; then
     else
         echo -e "${YELLOW}[*] Launching Vite development server on port 3000... (Press Ctrl+C to exit)${NC}"
 
-        # If open command exists on mac, open the browser
+        # If open command exists on mac, open the browser in private / incognito window
         if command -v open >/dev/null 2>&1; then
-            (sleep 2 && open "http://localhost:3000") &
+            (sleep 2 && (open -na "Google Chrome" --args --incognito "http://localhost:3000" 2>/dev/null || open "http://localhost:3000")) &
         fi
         exec npm run dev -- --host 0.0.0.0 --port 3000
     fi

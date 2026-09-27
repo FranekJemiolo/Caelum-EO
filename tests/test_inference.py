@@ -67,3 +67,25 @@ def test_end_to_end_mock_inference_and_persistence():
     assert 0.0 <= first_rec.confidence <= 1.0
     assert first_rec.baseline_timestamp == "2026-05-15T08:30:00Z"
     assert first_rec.detection_timestamp == "2026-09-27T10:00:31Z"
+
+
+def test_inference_coordinator_stac_event():
+    from src.inference.detector import PRITHVI_BAND_NAMES, InferenceCoordinator
+
+    db_persistence = PostGISPersistence(dry_run=True)
+    engine = VectorizationEngine(db_handler=db_persistence, min_cluster_pixels=5)
+    coordinator = InferenceCoordinator(device="cpu", vectorizer=engine)
+
+    dummy_event = {
+        "item_id": "S2A_MSIL2A_TEST_EVENT",
+        "bbox": [23.10, 54.05, 23.35, 54.25],
+        "datetime": "2026-09-27T12:00:00Z",
+        "cloud_cover": 2.0,
+        "bands": {b: {"band_name": b, "href": f"https://mock/{b}.tif"} for b in PRITHVI_BAND_NAMES},
+    }
+
+    mask, prob, records = coordinator.process_stac_event(dummy_event)
+    assert mask.shape == (256, 256)
+    assert prob.shape == (256, 256)
+    assert len(records) > 0
+    assert records[0].stac_metadata["item_id"] == "S2A_MSIL2A_TEST_EVENT"

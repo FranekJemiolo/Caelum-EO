@@ -9,13 +9,16 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 
 import json
 import os
-from typing import Dict, Optional, Tuple
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 import numpy as np
 import structlog
 import torch
 import torch.nn as nn
+
+from src.inference.vectorizer import VectorizationEngine
 
 logger = structlog.get_logger(__name__)
 
@@ -174,12 +177,14 @@ class InferenceCoordinator:
         kafka_broker: str = "localhost:9092",
         kafka_topic: str = "geoint-stac-ingest",
         device: str = DEFAULT_DEVICE,
+        vectorizer: Optional[VectorizationEngine] = None,
     ):
         self.kafka_broker = kafka_broker
         self.kafka_topic = kafka_topic
         self.device = device
         self.model = PrithviEOFoundationModel(device=self.device)
         self._consumer = None
+        self.vectorizer = vectorizer or VectorizationEngine()
 
     @property
     def consumer(self):
@@ -227,14 +232,33 @@ class InferenceCoordinator:
 
         return t0, t1
 
-    def process_stac_event(self, event_payload: Dict) -> Tuple[np.ndarray, np.ndarray]:
-        """Execute change detection on a single STAC metadata event."""
+    def process_stac_event(self, event_payload: Dict) -> Tuple[np.ndarray, np.ndarray, List[Any]]:
+        """Execute change detection on a single STAC metadata event and persist vectorized detections."""
         logger.info("Processing STAC ingestion event", item_id=event_payload.get("item_id"))
 
         t0, t1 = self.simulate_raster_download_and_alignment(event_payload)
         binary_mask, prob_map = self.model.forward_change_detection(t0, t1)
 
-        return binary_mask, prob_map
+        bbox = event_payload.get("bbox", [23.10, 54.05, 23.35, 54.25])
+        detection_timestamp = event_payload.get("datetime", datetime.now(timezone.utc).isoformat())
+
+        records = self.vectorizer.process_and_persist(
+            binary_mask=binary_mask,
+            prob_map=prob_map,
+            full_raster_cube=t1,
+            bbox=bbox,
+            baseline_timestamp="2026-05-15T08:30:00Z",
+            detection_timestamp=detection_timestamp,
+            sensor_source=event_payload.get("sensor_source", "Sentinel-2A-MSI-L2A"),
+            stac_metadata=event_payload,
+        )
+
+        logger.info(
+            "STAC event processed and persisted",
+            item_id=event_payload.get("item_id"),
+            detections_count=len(records),
+        )
+        return binary_mask, prob_map, records
 
     def listen_and_process(self):
         """Continuous event consumption loop."""
@@ -268,9 +292,9 @@ def main(mock_single: bool):
                 b: {"band_name": b, "href": f"https://mock/{b}.tif"} for b in PRITHVI_BAND_NAMES
             },
         }
-        mask, prob = coordinator.process_stac_event(dummy_event)
+        mask, prob, records = coordinator.process_stac_event(dummy_event)
         print(
-            f"Inference Successful! Detected {int(np.sum(mask))} change pixels across {mask.shape} grid."
+            f"Inference Successful! Detected {int(np.sum(mask))} change pixels and {len(records)} targets across {mask.shape} grid."
         )
     else:
         coordinator.listen_and_process()

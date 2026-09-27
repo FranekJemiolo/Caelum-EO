@@ -23,6 +23,8 @@ from rasterio.transform import from_bounds
 from scipy import ndimage
 from shapely.validation import make_valid
 
+from src.api.service import calculate_priority_score
+from src.api.webhooks import dispatch_high_priority_alert
 from src.inference.yolo_classifier import YOLOInfrastructureClassifier
 
 logger = structlog.get_logger(__name__)
@@ -47,6 +49,11 @@ class DetectionRecord(BaseModel):
     sensor_source: str
     raw_chip_s3_uri: Optional[str] = None
     stac_metadata: Dict = Field(default_factory=dict)
+    zone_id: Optional[str] = None
+    review_status: str = "PENDING_REVIEW"
+    priority_score: float = 0.0
+    baseline_chip_path: Optional[str] = None
+    detection_chip_path: Optional[str] = None
 
 
 class PostGISPersistence:
@@ -91,21 +98,67 @@ class PostGISPersistence:
         return self._conn
 
     def insert_detection(self, record: DetectionRecord) -> bool:
-        """Insert detection record into infrastructure_detections."""
+        """Insert detection record into infrastructure_detections with zone lookup and alert dispatch."""
+        conn = self.get_connection()
+
+        # If zone_id is not already assigned and live connection is active, spatially look up zone
+        zone_alert_level = "NORMAL"
+        if conn and not self.dry_run:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT id, alert_level FROM geographic_zones
+                        WHERE ST_Intersects(boundary, ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))
+                        LIMIT 1;
+                        """,
+                        (json.dumps(record.geometry),),
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        if not record.zone_id:
+                            record.zone_id = str(row[0])
+                        zone_alert_level = str(row[1])
+            except Exception as exc:
+                logger.warning("Failed querying intersecting geographic zone", error=str(exc))
+
+        # Calculate priority score if not set
+        if record.priority_score == 0.0:
+            record.priority_score = calculate_priority_score(
+                confidence=record.confidence,
+                classification=record.classification,
+                zone_alert_level=zone_alert_level,
+            )
+
         self.committed_records.append(record)
 
-        if self.dry_run:
+        # Trigger high-priority SIEM alert if threshold exceeded
+        if record.priority_score > 0.85:
+            try:
+                dispatch_high_priority_alert(
+                    {
+                        "id": record.id,
+                        "classification": record.classification,
+                        "confidence": record.confidence,
+                        "priority_score": record.priority_score,
+                        "zone_id": record.zone_id or "UNASSIGNED",
+                        "sensor_source": record.sensor_source,
+                        "detection_timestamp": record.detection_timestamp,
+                    }
+                )
+            except Exception as exc:
+                logger.warning("Failed dispatching high priority alert", error=str(exc))
+
+        if self.dry_run or not conn:
             logger.info(
                 "[DRY RUN] Persisted detection to memory ledger",
                 id=record.id,
                 classification=record.classification,
                 confidence=record.confidence,
+                priority_score=record.priority_score,
+                zone_id=record.zone_id,
             )
             return True
-
-        conn = self.get_connection()
-        if not conn:
-            return False
 
         sql = """
         INSERT INTO infrastructure_detections (
@@ -117,7 +170,12 @@ class PostGISPersistence:
             detection_timestamp,
             sensor_source,
             raw_chip_s3_uri,
-            stac_metadata
+            stac_metadata,
+            zone_id,
+            review_status,
+            priority_score,
+            baseline_chip_path,
+            detection_chip_path
         ) VALUES (
             %s,
             ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326),
@@ -127,8 +185,19 @@ class PostGISPersistence:
             %s,
             %s,
             %s,
+            %s,
+            %s,
+            %s::review_status_enum,
+            %s,
+            %s,
             %s
-        ) ON CONFLICT (id) DO NOTHING;
+        ) ON CONFLICT (id) DO UPDATE SET
+            geometry = EXCLUDED.geometry,
+            classification = EXCLUDED.classification,
+            confidence = EXCLUDED.confidence,
+            zone_id = EXCLUDED.zone_id,
+            priority_score = EXCLUDED.priority_score,
+            review_status = EXCLUDED.review_status;
         """
         try:
             with conn.cursor() as cur:
@@ -144,6 +213,11 @@ class PostGISPersistence:
                         record.sensor_source,
                         record.raw_chip_s3_uri,
                         json.dumps(record.stac_metadata),
+                        record.zone_id,
+                        record.review_status,
+                        record.priority_score,
+                        record.baseline_chip_path,
+                        record.detection_chip_path,
                     ),
                 )
             return True
@@ -184,35 +258,45 @@ class VectorizationEngine:
 
         structure = ndimage.generate_binary_structure(2, 2)
         labeled_mask, num_features = ndimage.label(binary_mask, structure=structure)
+        if num_features == 0:
+            return []
+
+        slices = ndimage.find_objects(labeled_mask)
+        counts = np.bincount(labeled_mask.ravel())
+
+        # Single-pass C-accelerated polygon extraction across all feature clusters
+        shapes = rasterio.features.shapes(
+            labeled_mask.astype(np.int32),
+            mask=(labeled_mask > 0),
+            transform=affine_transform,
+        )
 
         polygons = []
-        for feat_id in range(1, num_features + 1):
-            coords = np.argwhere(labeled_mask == feat_id)
-            pixel_count = len(coords)
+        for geom_dict, val in shapes:
+            feat_id = int(val)
+            pixel_count = int(counts[feat_id])
             if pixel_count < self.min_cluster_pixels:
                 continue
 
-            min_r, min_c = coords.min(axis=0)
-            max_r, max_c = coords.max(axis=0)
-            pixel_bbox = (int(min_r), int(min_c), int(max_r), int(max_c))
-
-            # Feature submask for polygon extraction
-            submask = (labeled_mask == feat_id).astype(np.uint8)
-            shapes = rasterio.features.shapes(
-                submask, mask=(submask == 1), transform=affine_transform
+            slice_r, slice_c = slices[feat_id - 1]
+            pixel_bbox = (
+                int(slice_r.start),
+                int(slice_c.start),
+                int(slice_r.stop - 1),
+                int(slice_c.stop - 1),
             )
 
-            for geom_dict, val in shapes:
-                if val == 1:
-                    poly = shapely.geometry.shape(geom_dict)
-                    if not poly.is_valid:
-                        poly = make_valid(poly)
-                    # Douglas-Peucker topological simplification
-                    simplified = poly.simplify(self.simplification_tol, preserve_topology=True)
-                    if simplified.geom_type == "Polygon" and not simplified.is_empty:
-                        polygons.append(
-                            (shapely.geometry.mapping(simplified), pixel_bbox, pixel_count)
-                        )
+            poly = shapely.geometry.shape(geom_dict)
+            if not poly.is_valid:
+                poly = make_valid(poly)
+
+            # Douglas-Peucker topological simplification
+            simplified = poly.simplify(self.simplification_tol, preserve_topology=True)
+            if simplified.geom_type == "MultiPolygon":
+                simplified = max(simplified.geoms, key=lambda p: p.area)
+
+            if simplified.geom_type == "Polygon" and not simplified.is_empty:
+                polygons.append((shapely.geometry.mapping(simplified), pixel_bbox, pixel_count))
 
         logger.info("Polygonized binary change mask", extracted_polygons=len(polygons))
         return polygons
@@ -231,6 +315,7 @@ class VectorizationEngine:
         """End-to-end vectorization, YOLO classification, and PostGIS commit."""
         extracted_polygons = self.polygonize_binary_mask(binary_mask, bbox)
         records: List[DetectionRecord] = []
+        meta = stac_metadata or {}
 
         for geojson_geom, pixel_bbox, count in extracted_polygons:
             min_r, min_c, max_r, max_c = pixel_bbox
@@ -249,10 +334,13 @@ class VectorizationEngine:
                 baseline_timestamp=baseline_timestamp,
                 detection_timestamp=detection_timestamp,
                 sensor_source=sensor_source,
-                stac_metadata=stac_metadata or {},
+                stac_metadata=meta,
+                zone_id=meta.get("zone_id"),
+                baseline_chip_path=meta.get("baseline_chip_path"),
+                detection_chip_path=meta.get("detection_chip_path"),
             )
-            records.append(record)
             self.db.insert_detection(record)
+            records.append(record)
 
         logger.info("Committed vectorized intelligence", records_count=len(records))
         return records
