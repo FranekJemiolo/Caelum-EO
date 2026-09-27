@@ -1,79 +1,110 @@
-# Project Caelum-EO: System Architecture Specification (Phase 2 Deep Design)
+# Project Caelum-EO: System Architecture Specification
 
 **Repository Namespace:** `github.com/FranekJemiolo/Caelum-EO`  
-**Role:** Principal Distributed Systems Engineer  
-**Status:** Approved & Baseline Specification
+**Role:** Principal Geospatial & Distributed Systems Engineer  
+**Status:** Approved Architecture
 
 ---
 
-## 1. System Mission & Data Flow
+## 1. Executive Summary
 
-Project Caelum-EO delivers continuous, automated geospatial intelligence (GEOINT) by orchestrating open-source Earth Observation (EO) foundation models and deep computer vision networks over public Sentinel-1 (SAR) and Sentinel-2 (optical) satellite streams. The platform discovers, localizes, segments, and tracks infrastructure developments across targeted global geofences.
+`Project Caelum-EO` is an open-source, automated geospatial intelligence (GEOINT) pipeline that ingests Copernicus Earth Observation (EO) satellite streams (Sentinel-2 multispectral and Sentinel-1 SAR), co-registers temporal scenes, runs inference through NASA/IBM foundation models and computer vision detectors, stores vectorized target intelligence in PostGIS, and visualizes build-out trends through an interactive WebGL Deck.gl frontend.
+
+The platform is designed to operate in two seamless modes:
+1. **100% Local Standalone Mode:** Powered by Docker Compose with zero external cloud dependencies, utilizing MinIO for S3 object storage, Redpanda for lightweight Kafka-compatible event streaming, and synthetic raster generators.
+2. **Production Cloud Mode:** Connecting directly to the Copernicus Data Space Ecosystem (CDSE) STAC API and OData/S3 direct storage with GPU acceleration (NVIDIA CUDA / Apple Silicon MPS).
+
+---
+
+## 2. End-to-End System Architecture
 
 ```mermaid
 flowchart TD
     subgraph Data Sources
-        CDSE[Copernicus Data Space Ecosystem<br/>STAC API Endpoint]
+        CDSE[Copernicus Data Space Ecosystem<br/>STAC API & OData S3]
+        Mock[Local Synthetic Raster Seeder<br/>scripts/generate_mock_data.py]
     end
 
-    subgraph Phase A: Ingestion Firehose
-        Poller[STAC Ingestion Poller<br/>src/ingestion/stac_poller.py]
-        Kafka[(Apache Kafka<br/>Topic: geoint-stac-ingest)]
-        CDSE -->|pystac-client Metadata Query| Poller
-        Poller -->|Stream STAC JSON Payloads| Kafka
+    subgraph Event Broker
+        Queue[(Redpanda / Kafka Event Broker<br/>Topic: geoint-stac-ingest)]
     end
 
-    subgraph Phase B: Inference Engine
-        Detector[Inference Coordinator<br/>src/inference/detector.py]
-        Prithvi[NASA/IBM Prithvi-EO-2.0-300M<br/>Temporal MAE Backbone]
-        ChangeMask[Binary Change Mask<br/>1 = Structural Anomaly]
+    subgraph Ingestion & ETL Tier
+        Poller[STAC Ingestion Worker<br/>src/etl/cdse_client.py]
+        Processor[Windowed Raster Processor<br/>src/etl/raster_processor.py]
+        CDSE -->|pystac-client Metadata| Poller
+        Mock -->|Local Scene Metadata| Poller
+        Poller -->|Stream STAC Payloads| Queue
+        Queue -->|Consume Event| Processor
+    end
+
+    subgraph Object Storage Tier
+        MinIO[(MinIO / S3 Object Store)]
+        RawBucket[Bucket: caelum-raw<br/>Cached GeoTIFF chips]
+        InterimBucket[Bucket: caelum-interim<br/>Normalized 6-band tensor cubes]
+        ChipsBucket[Bucket: caelum-chips<br/>High-res verification chips]
         
-        Kafka -->|KafkaConsumer| Detector
-        Detector -->|Aligned 6-Band Temporal Tensors| Prithvi
-        Prithvi --> ChangeMask
+        MinIO --- RawBucket
+        MinIO --- InterimBucket
+        MinIO --- ChipsBucket
+        
+        Processor <-->|Streaming COG Reads / Cache| RawBucket
+        Processor -->|Persist (6, H, W) Tensor Stacks| InterimBucket
     end
 
-    subgraph Phase C: Vectorization & Storage
-        Vectorizer[Vectorization & Storage Pipeline<br/>src/inference/vectorizer.py]
+    subgraph Inference & Vectorization Tier
+        Prithvi[NASA/IBM Prithvi-EO-2.0-300M<br/>Temporal MAE Backbone]
         YOLO[YOLOv8-OBB Classifier]
         GeoSAM[GeoSAM Zero-Shot Perimeter Extractor]
-        DB[(PostgreSQL 15 + PostGIS 3.3<br/>Table: infrastructure_detections)]
-        
-        ChangeMask --> Vectorizer
-        Vectorizer --> YOLO
-        Vectorizer --> GeoSAM
-        YOLO -->|Class & Confidence| Vectorizer
-        GeoSAM -->|GeoJSON Polygon| Vectorizer
-        Vectorizer -->|psycopg2 SQL Batch INSERT| DB
+        Vectorizer[Polygonizer & Spatial Exporter<br/>src/inference/vectorizer.py]
+
+        InterimBucket -->|Load Dual-Temporal Pair (2, 6, H, W)| Prithvi
+        Prithvi -->|Binary Change Mask| Vectorizer
+        Vectorizer -->|Chip Context Prompts| YOLO
+        Vectorizer -->|Centroid & BBox Prompts| GeoSAM
+        YOLO -->|Class Label & Confidence| Vectorizer
+        GeoSAM -->|EPSG:4326 GeoJSON Polygon| Vectorizer
+        Vectorizer -->|Crop Target Visual Chips| ChipsBucket
     end
 
-    subgraph Phase D: Visual Analyst Layer
-        API[FastAPI / REST Backend]
-        Deck[Deck.gl + React + MapLibre<br/>src/frontend/]
-        DB --> API
-        API -->|GeoJSON FeatureCollection| Deck
+    subgraph Spatial Persistence & WebGL Visualization
+        PostGIS[(PostgreSQL 15 + PostGIS 3.3<br/>infrastructure_detections)]
+        API[FastAPI GeoJSON REST Bridge]
+        Frontend[React 18 + Deck.gl 9.0 + MapLibre GL<br/>src/frontend/]
+
+        Vectorizer -->|psycopg2 Parameterized Batch INSERT| PostGIS
+        PostGIS --> API
+        API -->|GeoJSON FeatureCollection| Frontend
     end
 ```
 
 ---
 
-## 2. Distributed Architecture & Component Responsibilities
+## 3. Subsystem Breakdown
 
-### 2.1. Ingestion Poller (`src/ingestion/stac_poller.py`)
-- **Decoupled Firehose:** Queries the CDSE STAC endpoint (`https://catalogue.dataspace.copernicus.eu/stac`) using `pystac-client`.
-- **Zero-Download Ingestion Policy:** Raw Copernicus GeoTIFF files are 500MB - 1GB each. The ingestion poller avoids downloading rasters into memory, extracting only the metadata, bounding boxes, cloud cover, and asset download URLs for the 6 core optical bands (`B02`, `B03`, `B04`, `B8A`, `B11`, `B12`).
-- **Kafka Topic:** Emits strictly formatted JSON payloads into `geoint-stac-ingest`.
+### 3.1. STAC Ingestion Firehose (`src/etl/cdse_client.py`)
+- **Decoupled Metadata-First Querying:** Queries CDSE STAC endpoint (`https://catalogue.dataspace.copernicus.eu/stac`) across configurable geospatial bounding boxes and rolling time windows.
+- **Offline Mock Integration:** If `CAELUM_MOCK_INGEST=true`, queries local synthetic catalog fixtures generated by `scripts/generate_mock_data.py`.
+- **Kafka Event Publishing:** Pushes standardized `STACItemPayload` messages containing asset URLs, spatial bounds, capture timestamp, and cloud cover to topic `geoint-stac-ingest`.
 
-### 2.2. Inference Coordinator (`src/inference/detector.py`)
-- **Event-Driven Consumption:** Listens to `geoint-stac-ingest` as part of consumer group `caelum-inference-workers`.
-- **Temporal Alignment:** Coordinates pairs of scenes (Time $T_0$ baseline vs Time $T_1$ new acquisition).
-- **Prithvi-EO-2.0 Foundation Model:** Feeds preprocessed $(2, 6, H, W)$ tensors into the masked autoencoder backbone to produce a structural change probability array.
+### 3.2. Streaming Raster ETL (`src/etl/raster_processor.py`)
+- **Virtual File System Streaming:** Reads windowed spatial bounds using GDAL `/vsicurl/` or `s3fs` streaming to prevent downloading full 1GB Copernicus archives into memory.
+- **Bilinear Resampling:** Resamples 20m bands (`B8A`, `B11`, `B12`) to uniform 10m Ground Sample Distance (GSD) matching `B02`, `B03`, and `B04`.
+- **Quality & Cloud Masking:** Parses the Scene Classification Layer (`SCL`) to dynamically mask cloud shadows (class 3), clouds (classes 8, 9), cirrus (10), and water bodies (6).
+- **Temporal Alignment:** Co-registers $T_0$ (baseline reference) and $T_1$ (new observation) into an affine-aligned array cube.
 
-### 2.3. Vectorization & PostGIS Persistence (`src/inference/vectorizer.py`)
-- **Morphological Bounding Box Extraction:** Labels connected components of change pixels to derive spatial bounding chips.
-- **Classification & Segmentation:** Dispatches chips to YOLOv8-OBB for tactical classification and GeoSAM for zero-shot boundary polygon extraction.
-- **Database Engine:** Pushes vectorized features to PostgreSQL 15 / PostGIS 3.3 via parameterized `psycopg2` transactions with spatial geometry validation.
+### 3.3. Distributed Storage Topology (`src/etl/storage.py`)
+- **MinIO / AWS S3 Integration:** Manages object lifecycles across three distinct buckets:
+  - `caelum-raw`: Raw downloaded or cached windowed GeoTIFFs.
+  - `caelum-interim`: Normalized multi-temporal tensors (`(2, 6, H, W)`).
+  - `caelum-chips`: Cropped verification imagery for human analysts.
+- **Local Scratchpad:** Transient raster processing in `./data/cache/`.
 
-### 2.4. Deck.gl Presentation Tier (`src/frontend/`)
-- High-performance WebGL vector layer (`GeoJsonLayer`) on top of a dark-mode MapLibre basemap.
-- Real-time classification color encoding, confidence filtering, and temporal slider controls.
+### 3.4. Multi-Stage Foundation Model Inference (`src/inference/`)
+- **Stage 1 (Prithvi-EO-2.0-300M):** 3D Masked Autoencoder backbone extracting temporal difference features across 6 standardized bands, outputting a binary change probability mask.
+- **Stage 2a (YOLOv8-OBB):** Oriented Bounding Box classification determining infrastructure category (`LOGISTICS_DEPOT`, `RUNWAY_TAXIWAY`, `RADAR_DOME`, etc.).
+- **Stage 2b (GeoSAM):** Zero-shot prompt-driven boundary perimeter extraction with Douglas-Peucker topological simplification.
+
+### 3.5. PostGIS Database & Presentation (`src/db/` & `src/frontend/`)
+- **PostGIS 15 / PostgreSQL 3.3:** Indexed spatial table `infrastructure_detections` with `GIST` indexes, temporal indexes, and stored generated column `area_sq_meters`.
+- **Deck.gl Frontend:** WebGL `GeoJsonLayer` rendering 3D extruded footprints, color-coded by target category, with an interactive timeline scrubber.
