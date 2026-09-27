@@ -1,6 +1,6 @@
 # CI/CD Pipeline & Quality Engineering Specification
 
-**Project:** Caelum-EO (`github.com/FranekJemiolo/Caelum-EO`)  
+**Project:** Caelum-EO (`github.com/FranekJemiolo/Caelum-EO`)
 **Target:** Automated GEOINT Infrastructure Detection Pipeline
 
 ---
@@ -29,18 +29,18 @@ flowchart LR
 
 All commits must pass automated local hooks before being pushed:
 
-| Tool | Hook ID | Purpose | Configuration |
-|---|---|---|---|
-| **pre-commit-hooks** | `trailing-whitespace` | Strip trailing whitespace | Standard |
-| **pre-commit-hooks** | `end-of-file-fixer` | Ensure newline at EOF | Standard |
-| **pre-commit-hooks** | `check-yaml` | Validate YAML syntax | Standard |
-| **pre-commit-hooks** | `check-json` | Validate JSON structure | Standard |
-| **pre-commit-hooks** | `check-added-large-files` | Prevent accidental binary leaks | `--maxkb=10240` (10MB limit) |
-| **Ruff** | `ruff` | Python linting (F, E, W, I, B) | Auto-fix `--fix` enabled |
-| **Ruff** | `ruff-format` | Fast code formatting | Black-compatible |
-| **mypy** | `mypy` | Static type checking | Strict, `--ignore-missing-imports` |
-| **Prettier** | `prettier` | Frontend formatting (JSON, CSS, TS) | Scoped to frontend and docs |
-| **ESLint** | `frontend-eslint` | Frontend static analysis | Strict TypeScript linting |
+| Tool                 | Hook ID                   | Purpose                             | Configuration                      |
+| -------------------- | ------------------------- | ----------------------------------- | ---------------------------------- |
+| **pre-commit-hooks** | `trailing-whitespace`     | Strip trailing whitespace           | Standard                           |
+| **pre-commit-hooks** | `end-of-file-fixer`       | Ensure newline at EOF               | Standard                           |
+| **pre-commit-hooks** | `check-yaml`              | Validate YAML syntax                | Standard                           |
+| **pre-commit-hooks** | `check-json`              | Validate JSON structure             | Standard                           |
+| **pre-commit-hooks** | `check-added-large-files` | Prevent accidental binary leaks     | `--maxkb=10240` (10MB limit)       |
+| **Ruff**             | `ruff`                    | Python linting (F, E, W, I, B)      | Auto-fix `--fix` enabled           |
+| **Ruff**             | `ruff-format`             | Fast code formatting                | Black-compatible                   |
+| **mypy**             | `mypy`                    | Static type checking                | Strict, `--ignore-missing-imports` |
+| **Prettier**         | `prettier`                | Frontend formatting (JSON, CSS, TS) | Scoped to frontend and docs        |
+| **ESLint**           | `frontend-eslint`         | Frontend static analysis            | Strict TypeScript linting          |
 
 ---
 
@@ -49,11 +49,13 @@ All commits must pass automated local hooks before being pushed:
 The CI workflow triggers on every `push` and `pull_request` targeting `main`:
 
 ### Job 1: `lint-and-format`
+
 - **Runner:** `ubuntu-latest`
 - **Dependencies:** Python 3.11, Node.js 20, cached pre-commit environments.
 - **Execution:** Runs `pre-commit run --all-files` verifying complete code formatting, typing, and hygiene.
 
 ### Job 2: `backend-tests`
+
 - **Service Containers:**
   - `postgis/postgis:15-3.3` on port `5432` with health checks.
   - `minio/minio:latest` on ports `9000`/`9001`.
@@ -61,10 +63,12 @@ The CI workflow triggers on every `push` and `pull_request` targeting `main`:
 - **Test Suite:** Runs `pytest tests/` with code coverage tracking (`--cov=src --cov-fail-under=80`).
 
 ### Job 3: `frontend-quality`
+
 - **Runner:** `ubuntu-latest`
 - **Execution:** Runs `npm ci`, `npm run lint` (ESLint 9), and `npm run build` (Vite) ensuring zero TypeScript or bundler errors.
 
 ### Job 4: `docker-validation`
+
 - **Runner:** `ubuntu-latest`
 - **Execution:** Runs `docker compose config --quiet` verifying syntax, service references, environment interpolation, and network declarations.
 
