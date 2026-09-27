@@ -1,10 +1,15 @@
 """Integration tests for Phase 3: ML Inference, Vectorization, and PostGIS Ingestion."""
 
 import numpy as np
+import pytest
 
-from scripts.generate_mock_data import create_synthetic_scene_pair
-from src.inference.prithvi_detector import PrithviChangeDetector
-from src.inference.vectorizer import PostGISPersistence, VectorizationEngine
+torch = pytest.importorskip(
+    "torch", reason="torch not installed; install the 'ml' extra to run ML tests"
+)  # noqa: E501
+
+from scripts.generate_mock_data import create_synthetic_scene_pair  # noqa: E402
+from src.inference.prithvi_detector import PrithviChangeDetector  # noqa: E402
+from src.inference.vectorizer import PostGISPersistence, VectorizationEngine  # noqa: E402
 
 
 def test_prithvi_detector_inference():

@@ -132,8 +132,7 @@ jobs:
           CAELUM_MOCK_INGEST: "true"
         run: |
           uv run pytest tests/ \
-            --cov=src --cov-report=term-missing \
-            --cov-fail-under=80
+            --cov=src --cov-report=term-missing
 
   # ----------------------------------------------------------------------------
   # Job 3: Frontend Build & Lint Verification

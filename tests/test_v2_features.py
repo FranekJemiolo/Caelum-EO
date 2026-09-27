@@ -32,7 +32,6 @@ from src.etl.sar_ingest import (
     SARItemPayload,
     Sentinel1SARProcessor,
 )
-from src.inference.multimodal_detector import MultiModalChangeDetector
 from src.mlops.active_learning import ActiveLearningHarvestEngine, LoRATrainingWorker
 
 
@@ -118,6 +117,9 @@ def test_multimodal_tensor_assembly():
 
 
 def test_multimodal_change_detector_forward():
+    pytest.importorskip("torch", reason="torch not installed; install the 'ml' extra")
+    from src.inference.multimodal_detector import MultiModalChangeDetector
+
     detector = MultiModalChangeDetector(threshold=0.55)
     temporal_stack = np.random.uniform(0.1, 0.8, (2, 8, 64, 64)).astype(np.float32)
     cloud_weights = np.zeros((2, 64, 64), dtype=np.float32)

@@ -33,6 +33,10 @@ dependencies = [
     # Data / Messaging
     "kafka-python>=2.0.2",
     "psycopg2-binary>=2.9.9",
+    # Imaging
+    "Pillow>=10.0.0",
+    # Object storage
+    "boto3>=1.34.0",
     # API / Config
     "pydantic>=2.7.0",
     "pydantic-settings>=2.2.0",
@@ -137,7 +141,17 @@ testpaths = [
 # ---------------------------------------------------------------------------
 [tool.coverage.run]
 source = ["src"]
-omit = ["src/frontend/*", "*/migrations/*"]
+omit = [
+    "src/frontend/*",
+    "*/migrations/*",
+    # ML inference modules require torch (ml extra) — excluded from the
+    # non-ML CI coverage gate; covered separately in the ml test job.
+    "src/inference/detector.py",
+    "src/inference/prithvi_detector.py",
+    "src/inference/multimodal_detector.py",
+    "src/inference/vectorizer.py",
+    "src/inference/yolo_classifier.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -146,3 +160,4 @@ exclude_lines = [
     "raise NotImplementedError",
     "@abstractmethod",
 ]
+fail_under = 80

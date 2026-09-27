@@ -203,7 +203,13 @@ def get_multimodal_status(
 ) -> Dict[str, Any]:
     """Return status and configuration of multi-modal SAR + Optical fusion engine."""
     from src.etl.sar_ingest import MULTIMODAL_BANDS
-    from src.inference.prithvi_detector import get_optimal_device
+
+    try:
+        from src.inference.prithvi_detector import get_optimal_device
+
+        optimal_device = str(get_optimal_device())
+    except ModuleNotFoundError:
+        optimal_device = "cpu"
 
     return {
         "status": "active",
@@ -213,7 +219,7 @@ def get_multimodal_status(
         "band_count": len(MULTIMODAL_BANDS),
         "bands": MULTIMODAL_BANDS,
         "fusion_architecture": "Cross-Attention Dynamic Cloud-Gated Transformer",
-        "optimal_device": str(get_optimal_device()),
+        "optimal_device": optimal_device,
     }
 
 
