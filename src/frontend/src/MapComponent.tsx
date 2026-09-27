@@ -275,7 +275,7 @@ export default function MapComponent({
   );
   const [fpSuppression, setFpSuppression] = useState<number>(84.6);
   const [loraTriggering, setLoraTriggering] = useState<boolean>(false);
-  const [edgeSyncCount, setEdgeSyncCount] = useState<number>(18);
+  const [edgeSyncCount, _setEdgeSyncCount] = useState<number>(18);
 
   const handleTriggerLoRA = async () => {
     setLoraTriggering(true);
