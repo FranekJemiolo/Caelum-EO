@@ -6,7 +6,7 @@
 services:
   # 1. Spatial Database (PostGIS 15+) - Internal Network Only (No Host Port Exposed)
   postgis:
-    image: postgis/postgis:15-3.3
+    image: postgis/postgis:17-3.5
     container_name: caelum-postgis-prod
     restart: unless-stopped
     environment:

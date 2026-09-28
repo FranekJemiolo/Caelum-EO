@@ -1,6 +1,16 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind CSS v4 — single import replaces the three legacy directives */
+@import "tailwindcss";
+
+/* Custom design tokens registered as Tailwind v4 theme variables */
+@theme {
+  --color-caelum-bg: #0a0e17;
+  --color-caelum-surface: #101622;
+  --color-caelum-border: #1e293b;
+  --color-caelum-accent: #00f2fe;
+  --color-caelum-amber: #f59e0b;
+  --color-caelum-crimson: #f43f5e;
+  --color-caelum-purple: #a855f7;
+}
 
 :root {
   --bg-dark: #0a0d14;

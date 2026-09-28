@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
 
-# Shared uv cache key across all jobs
+# Shared uv cache path across all jobs
 env:
   UV_CACHE_DIR: /tmp/.uv-cache
 
@@ -19,22 +19,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v10
         with:
           version: "latest"
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
-      - name: Setup Python 3.11
-        run: uv python install 3.11
+      - name: Setup Python 3.13
+        run: uv python install 3.13
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
           cache-dependency-path: "src/frontend/package-lock.json"
 
@@ -42,11 +42,11 @@ jobs:
         working-directory: src/frontend
         run: npm ci
 
-      - name: Install Project (dev extras) via uv
-        run: uv sync --extra dev
+      - name: Install Project (dev group) via uv
+        run: uv sync --group dev
 
       - name: Cache Pre-commit Environments
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -54,7 +54,7 @@ jobs:
             pre-commit-${{ runner.os }}-
 
       - name: Install pre-commit
-        run: uv tool install pre-commit
+        run: uv tool install pre-commit --python 3.13
 
       - name: Run Pre-commit Hooks
         run: uv tool run pre-commit run --all-files
@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgis:
-        image: postgis/postgis:15-3.3
+        image: postgis/postgis:17-3.5
         env:
           POSTGRES_DB: caelum_geoint
           POSTGRES_USER: caelum_user
@@ -82,25 +82,25 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v10
         with:
           version: "latest"
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
-      - name: Setup Python 3.11
-        run: uv python install 3.11
+      - name: Setup Python 3.13
+        run: uv python install 3.13
 
       - name: Install System Geospatial Libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y libgdal-dev gdal-bin postgresql-client
 
-      - name: Install Project (dev extras) via uv
-        run: uv sync --extra dev
+      - name: Install Project (dev group) via uv
+        run: uv sync --group dev
 
       - name: Apply PostGIS Database Schema
         run: |
@@ -128,12 +128,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
           cache-dependency-path: "src/frontend/package-lock.json"
 
@@ -157,7 +157,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate Docker Compose Configuration
         run: |
