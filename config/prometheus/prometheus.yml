@@ -1,0 +1,48 @@
+# Project Caelum-EO: Prometheus Scrape Configuration
+# Fully Local, Air-Gapped Bare-Metal Observability Stack
+
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  # 1. FastAPI Core GEOINT Backend
+  - job_name: "caelum-api"
+    metrics_path: "/metrics"
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["api:8000"]
+        labels:
+          service: "caelum-api"
+          tier: "backend"
+          env: "production"
+
+  # 2. Ingestion & Inference Python Workers
+  - job_name: "caelum-workers"
+    metrics_path: "/metrics"
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["worker-etl:9100", "worker-inference:9101"]
+        labels:
+          service: "caelum-workers"
+          tier: "workers"
+
+  # 3. Redpanda Kafka Streaming Broker Metrics
+  - job_name: "caelum-redpanda"
+    metrics_path: "/metrics"
+    scrape_interval: 10s
+    static_configs:
+      - targets: ["redpanda:9644"]
+        labels:
+          service: "redpanda"
+          tier: "streaming"
+
+  # 4. MinIO Object Storage Cluster Metrics
+  - job_name: "caelum-minio"
+    metrics_path: "/minio/v2/metrics/cluster"
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["minio:9000"]
+        labels:
+          service: "minio"
+          tier: "storage"

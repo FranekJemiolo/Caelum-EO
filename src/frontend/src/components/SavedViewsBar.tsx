@@ -107,7 +107,9 @@ export const SavedViewsBar: React.FC<SavedViewsBarProps> = ({
   const handleDeleteFilter = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await authFetch(`${apiUrl}/api/v1/saved-filters/${id}`, { method: "DELETE" });
+      await authFetch(`${apiUrl}/api/v1/saved-filters/${id}`, {
+        method: "DELETE",
+      });
     } catch {
       // Ignore
     }
@@ -150,7 +152,10 @@ export const SavedViewsBar: React.FC<SavedViewsBarProps> = ({
                 : "bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
             }`}
           >
-            <Filter size={11} className={isActive ? "text-cyan-400" : "text-slate-500"} />
+            <Filter
+              size={11}
+              className={isActive ? "text-cyan-400" : "text-slate-500"}
+            />
             <span>{filter.name}</span>
             <span
               onClick={(e) => handleDeleteFilter(filter.id, e)}

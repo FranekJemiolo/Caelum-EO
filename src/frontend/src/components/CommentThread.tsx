@@ -24,7 +24,9 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await authFetch(`${apiUrl}/api/v1/detections/${detectionId}/comments`);
+      const res = await authFetch(
+        `${apiUrl}/api/v1/detections/${detectionId}/comments`,
+      );
       if (res.ok) {
         const data = await res.json();
         setComments(data);
@@ -50,11 +52,14 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
     setIsSending(true);
     setError(null);
     try {
-      const res = await authFetch(`${apiUrl}/api/v1/detections/${detectionId}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment: newComment.trim() }),
-      });
+      const res = await authFetch(
+        `${apiUrl}/api/v1/detections/${detectionId}/comments`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comment: newComment.trim() }),
+        },
+      );
       if (res.ok) {
         const created: DetectionComment = await res.json();
         setComments((prev) => [...prev, created]);
@@ -101,9 +106,14 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
           </div>
         ) : comments.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-28 text-slate-500 text-center px-4">
-            <MessageSquare size={24} className="mb-1 opacity-30 text-cyan-400" />
+            <MessageSquare
+              size={24}
+              className="mb-1 opacity-30 text-cyan-400"
+            />
             <span>No analyst notes recorded yet.</span>
-            <span className="text-[10px] text-slate-600 mt-0.5">Leave observations for shift handover.</span>
+            <span className="text-[10px] text-slate-600 mt-0.5">
+              Leave observations for shift handover.
+            </span>
           </div>
         ) : (
           comments.map((c) => (
@@ -119,7 +129,9 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                 <div className="flex items-center gap-1 text-slate-500 text-[9px]">
                   <Clock size={10} />
                   <span>
-                    {c.created_at ? new Date(c.created_at).toLocaleString() : "Just now"}
+                    {c.created_at
+                      ? new Date(c.created_at).toLocaleString()
+                      : "Just now"}
                   </span>
                 </div>
               </div>
@@ -132,7 +144,10 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
       </div>
 
       {/* Input box */}
-      <form onSubmit={handleSendComment} className="p-2.5 bg-slate-950 border-t border-slate-800 flex gap-2">
+      <form
+        onSubmit={handleSendComment}
+        className="p-2.5 bg-slate-950 border-t border-slate-800 flex gap-2"
+      >
         <input
           type="text"
           value={newComment}
@@ -153,7 +168,11 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
           <span>Post</span>
         </button>
       </form>
-      {error && <div className="px-3 py-1 bg-rose-950/80 text-rose-300 text-[10px]">{error}</div>}
+      {error && (
+        <div className="px-3 py-1 bg-rose-950/80 text-rose-300 text-[10px]">
+          {error}
+        </div>
+      )}
     </div>
   );
 };

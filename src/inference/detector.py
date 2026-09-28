@@ -261,14 +261,31 @@ class InferenceCoordinator:
         return binary_mask, prob_map, records
 
     def listen_and_process(self):
-        """Continuous event consumption loop."""
+        """Continuous event consumption loop with Dead Letter Queue protection."""
+        from src.ops.dlq import dlq_manager
+        from src.ops.metrics import INFERENCE_TILES_PROCESSED_TOTAL
+
         logger.info("Starting inference coordinator listening loop")
         for message in self.consumer:
             try:
                 payload = message.value
                 self.process_stac_event(payload)
+                INFERENCE_TILES_PROCESSED_TOTAL.labels(status="success").inc()
             except Exception as exc:
-                logger.error("Error processing Kafka message", error=str(exc))
+                logger.error(
+                    "Error processing Kafka message; redirecting to Dead Letter Queue (DLQ)",
+                    error=str(exc),
+                )
+                INFERENCE_TILES_PROCESSED_TOTAL.labels(status="error").inc()
+                dlq_manager.send_to_dlq(
+                    failed_topic=self.kafka_topic,
+                    original_payload=getattr(message, "value", str(message)),
+                    error=exc,
+                    context={
+                        "partition": getattr(message, "partition", None),
+                        "offset": getattr(message, "offset", None),
+                    },
+                )
 
 
 @click.command()

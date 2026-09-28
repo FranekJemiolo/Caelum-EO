@@ -18,6 +18,8 @@ import pystac_client
 import structlog
 from pydantic import BaseModel, Field
 
+from src.ops.dlq import dlq_manager
+
 logger = structlog.get_logger(__name__)
 
 # Default Copernicus Data Space Ecosystem STAC endpoint
@@ -223,6 +225,12 @@ class STACIngestionWorker:
             return True
         except Exception as exc:
             logger.error("Kafka send failed", item_id=payload.item_id, error=str(exc))
+            dlq_manager.send_to_dlq(
+                failed_topic=self.kafka_topic,
+                original_payload=payload.model_dump(),
+                error=exc,
+                context={"item_id": payload.item_id, "mgrs_tile": payload.mgrs_tile},
+            )
             return False
 
     def run_polling_cycle(self, bbox: Optional[List[float]] = None, days_lookback: int = 7) -> int:

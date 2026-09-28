@@ -11,11 +11,12 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 """
 
 import io
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from PIL import Image
@@ -37,6 +38,12 @@ from src.api.models import (
     ZoneSummary,
 )
 from src.api.service import triage_service
+from src.ops import (
+    HTTP_REQUEST_DURATION_SECONDS,
+    HTTP_REQUESTS_TOTAL,
+    dlq_manager,
+    generate_metrics_payload,
+)
 
 app = FastAPI(
     title="Project Caelum-EO GEOINT Triage API",
@@ -56,6 +63,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def prometheus_metrics_middleware(request: Request, call_next):
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    duration = time.perf_counter() - start_time
+    path = request.url.path
+    if path.startswith("/api/v1/detections/"):
+        path = "/api/v1/detections/[id]"
+    HTTP_REQUESTS_TOTAL.labels(
+        method=request.method, endpoint=path, status=str(response.status_code)
+    ).inc()
+    HTTP_REQUEST_DURATION_SECONDS.labels(method=request.method, endpoint=path).observe(duration)
+    return response
 
 
 @app.get("/api/v1/health")
@@ -508,6 +530,23 @@ def export_intelligence_data_post(
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# --- 6. Observability & Fault Tolerance Endpoints ---
+@app.get("/metrics")
+def get_prometheus_metrics() -> Response:
+    """Scrape endpoint for local Prometheus server."""
+    payload, media_type = generate_metrics_payload()
+    return Response(content=payload, media_type=media_type)
+
+
+@app.get("/api/v1/ops/dlq")
+def get_dead_letter_queue_messages(
+    limit: int = Query(50, ge=1, le=500),
+    current_user: User = Depends(require_roles(["admin", "analyst"])),
+) -> List[Dict[str, Any]]:
+    """Retrieve captured Dead Letter Queue failure events."""
+    return dlq_manager.get_dlq_messages(limit=limit)
 
 
 if __name__ == "__main__":

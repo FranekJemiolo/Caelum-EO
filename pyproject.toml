@@ -51,6 +51,7 @@ dependencies = [
     "structlog>=25.1.0",
     "tenacity>=9.0.0",
     "click>=8.1.8",
+    "prometheus-client>=0.21.0",
 ]
 
 [project.optional-dependencies]

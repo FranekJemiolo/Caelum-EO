@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { History, Shield, CheckCircle2, XCircle, AlertCircle, Clock, User, Loader2 } from "lucide-react";
+import {
+  History,
+  Shield,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Clock,
+  User,
+  Loader2,
+} from "lucide-react";
 import { DetectionAuditRecord } from "../types";
 import { authFetch } from "../auth";
 
@@ -18,7 +27,9 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({
   const fetchAuditLogs = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await authFetch(`${apiUrl}/api/v1/detections/${detectionId}/audit`);
+      const res = await authFetch(
+        `${apiUrl}/api/v1/detections/${detectionId}/audit`,
+      );
       if (res.ok) {
         const data = await res.json();
         setAuditLogs(data);
@@ -85,7 +96,9 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({
         {isLoading ? (
           <div className="flex items-center justify-center h-40 text-slate-500 gap-2">
             <Loader2 size={16} className="animate-spin text-cyan-400" />
-            <span>Retrieving cryptographically logged lifecycle records...</span>
+            <span>
+              Retrieving cryptographically logged lifecycle records...
+            </span>
           </div>
         ) : auditLogs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-slate-500 text-center">
@@ -115,14 +128,20 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
                       <Clock size={11} className="text-slate-500" />
-                      <span>{log.timestamp ? new Date(log.timestamp).toLocaleString() : "N/A"}</span>
+                      <span>
+                        {log.timestamp
+                          ? new Date(log.timestamp).toLocaleString()
+                          : "N/A"}
+                      </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 text-[11px] text-slate-400 pt-1">
                     <User size={12} className="text-cyan-400" />
                     <span>Action by:</span>
-                    <span className="text-cyan-300 font-semibold">{log.username || "System Operator"}</span>
+                    <span className="text-cyan-300 font-semibold">
+                      {log.username || "System Operator"}
+                    </span>
                   </div>
 
                   {log.note && (
