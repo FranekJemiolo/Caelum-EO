@@ -23,9 +23,17 @@ from PIL import Image
 from src.api.auth import User, get_current_user, require_roles
 from src.api.auth import router as auth_router
 from src.api.models import (
+    DetectionAuditResponse,
+    DetectionCommentCreate,
+    DetectionCommentResponse,
+    ExportRequest,
     ImageryResponse,
     ReviewPayload,
     ReviewResponse,
+    SavedFilterCreate,
+    SavedFilterResponse,
+    SystemConfigItem,
+    SystemConfigUpdate,
     ZoneSummary,
 )
 from src.api.service import triage_service
@@ -316,6 +324,190 @@ def get_citus_status(
 
     conn = triage_service.get_connection()
     return CitusShardingManager.check_sharding_status(conn)
+
+
+# ============================================================================
+# Version 3 Endpoints: Dynamic Config, Comments, Audit Logs, Saved Filters, Export
+# ============================================================================
+
+
+# --- 1. Dynamic Configuration API ---
+@app.get("/api/v1/admin/config", response_model=List[SystemConfigItem])
+def list_system_configurations(
+    current_user: User = Depends(require_roles(["admin"])),
+) -> List[Dict[str, Any]]:
+    """Retrieve all dynamic system configurations (Admin only)."""
+    return triage_service.get_configurations()
+
+
+@app.get("/api/v1/admin/config/{key}", response_model=SystemConfigItem)
+def get_system_configuration(
+    key: str,
+    current_user: User = Depends(require_roles(["admin"])),
+) -> Dict[str, Any]:
+    """Retrieve a specific dynamic system configuration by key (Admin only)."""
+    config = triage_service.get_configuration(key)
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Configuration key '{key}' not found.",
+        )
+    return config
+
+
+@app.put("/api/v1/admin/config/{key}", response_model=SystemConfigItem)
+def update_system_configuration(
+    key: str,
+    payload: SystemConfigUpdate,
+    current_user: User = Depends(require_roles(["admin"])),
+) -> Dict[str, Any]:
+    """Update or create a dynamic configuration entry (Admin only)."""
+    return triage_service.set_configuration(
+        key=key,
+        value=payload.value,
+        description=payload.description,
+        user_id=current_user.id,
+    )
+
+
+@app.post("/api/v1/admin/config", response_model=SystemConfigItem)
+def create_or_update_system_configuration(
+    payload: SystemConfigItem,
+    current_user: User = Depends(require_roles(["admin"])),
+) -> Dict[str, Any]:
+    """Create or update a dynamic configuration entry (Admin only)."""
+    return triage_service.set_configuration(
+        key=payload.key,
+        value=payload.value,
+        description=payload.description,
+        user_id=current_user.id,
+    )
+
+
+# --- 2. Analyst Collaboration & Threaded Notes ---
+@app.get(
+    "/api/v1/detections/{detection_id}/comments",
+    response_model=List[DetectionCommentResponse],
+)
+def get_detection_comments(
+    detection_id: str,
+    current_user: User = Depends(require_roles(["analyst", "admin"])),
+) -> List[Dict[str, Any]]:
+    """Retrieve threaded analyst comments for a specific detection."""
+    return triage_service.get_comments(detection_id)
+
+
+@app.post(
+    "/api/v1/detections/{detection_id}/comments",
+    response_model=DetectionCommentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_detection_comment(
+    detection_id: str,
+    payload: DetectionCommentCreate,
+    current_user: User = Depends(require_roles(["analyst", "admin"])),
+) -> Dict[str, Any]:
+    """Post an analyst note to a detection thread."""
+    return triage_service.add_comment(
+        detection_id=detection_id,
+        comment=payload.comment,
+        username=current_user.username,
+        user_id=current_user.id,
+    )
+
+
+# --- 3. Audit History Timeline ---
+@app.get(
+    "/api/v1/detections/{detection_id}/audit",
+    response_model=List[DetectionAuditResponse],
+)
+def get_detection_audit_history(
+    detection_id: str,
+    current_user: User = Depends(require_roles(["analyst", "admin"])),
+) -> List[Dict[str, Any]]:
+    """Retrieve lifecycle state transition audit timeline for a detection."""
+    return triage_service.get_detection_audit_trail(detection_id)
+
+
+# --- 4. Saved Views & Advanced Filtering ---
+@app.get("/api/v1/saved-filters", response_model=List[SavedFilterResponse])
+def get_user_saved_filters(
+    current_user: User = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    """Retrieve personal saved filter presets for the authenticated user."""
+    return triage_service.get_saved_filters(user_id=current_user.id)
+
+
+@app.post(
+    "/api/v1/saved-filters",
+    response_model=SavedFilterResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_user_saved_filter(
+    payload: SavedFilterCreate,
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Save a new filter preset for the authenticated user."""
+    return triage_service.create_saved_filter(
+        user_id=current_user.id,
+        name=payload.name,
+        filter_json=payload.filter_json,
+    )
+
+
+@app.delete("/api/v1/saved-filters/{filter_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user_saved_filter(
+    filter_id: str,
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    """Delete a saved filter preset."""
+    triage_service.delete_saved_filter(user_id=current_user.id, filter_id=filter_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- 5. Intelligence Export & Reporting Engine ---
+@app.get("/api/v1/export")
+def export_intelligence_data_get(
+    format: str = Query("geojson", description="Export format: geojson or csv"),
+    detection_ids: Optional[str] = Query(None, description="Comma-separated detection UUIDs"),
+    zone_id: Optional[str] = Query(None, description="Strategic zone identifier"),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    """Export intelligence detections to downloadable GeoJSON or CSV."""
+    if format not in ["geojson", "csv"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="format must be either 'geojson' or 'csv'",
+        )
+    id_list = [i.strip() for i in detection_ids.split(",") if i.strip()] if detection_ids else None
+    content, media_type, filename = triage_service.export_detections(
+        detection_ids=id_list,
+        zone_id=zone_id,
+        format=format,
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/api/v1/export")
+def export_intelligence_data_post(
+    payload: ExportRequest,
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    """Export intelligence detections specified in request body."""
+    content, media_type, filename = triage_service.export_detections(
+        detection_ids=payload.detection_ids,
+        zone_id=payload.zone_id,
+        format=payload.format,
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 if __name__ == "__main__":

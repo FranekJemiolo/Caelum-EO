@@ -4,7 +4,11 @@ Handles spatial database queries with PostGIS and provides seamless in-memory fa
 for standalone offline testing.
 """
 
+import csv
+import io
+import json
 import os
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -244,6 +248,77 @@ class TriageService:
         }
         self._mock_zones: Dict[str, Dict[str, Any]] = {z["id"]: dict(z) for z in SEED_ZONES}
         self._mock_audit_log: List[Dict[str, Any]] = []
+        self._mock_configs: Dict[str, Dict[str, Any]] = {
+            "ml_confidence_threshold": {
+                "id": 1,
+                "key": "ml_confidence_threshold",
+                "value": "0.60",
+                "description": "Minimum inference confidence score required to ingest detection into intelligence store",
+                "updated_by": None,
+                "updated_at": "2026-09-28T12:00:00Z",
+            },
+            "stac_polling_interval_seconds": {
+                "id": 2,
+                "key": "stac_polling_interval_seconds",
+                "value": "300",
+                "description": "STAC catalog ingestion polling frequency in seconds",
+                "updated_by": None,
+                "updated_at": "2026-09-28T12:00:00Z",
+            },
+            "dlq_topic": {
+                "id": 3,
+                "key": "dlq_topic",
+                "value": "caelum.dlq",
+                "description": "Kafka Dead Letter Queue topic name for unparseable or failed messages",
+                "updated_by": None,
+                "updated_at": "2026-09-28T12:00:00Z",
+            },
+            "webhook_url": {
+                "id": 4,
+                "key": "webhook_url",
+                "value": "http://localhost:8000/api/v1/webhooks/alerts",
+                "description": "Local webhook endpoint for critical GEOINT triage alerts",
+                "updated_by": None,
+                "updated_at": "2026-09-28T12:00:00Z",
+            },
+            "target_geofences": {
+                "id": 5,
+                "key": "target_geofences",
+                "value": json.dumps(
+                    [
+                        {"name": "Suwalki Corridor", "bbox": [23.00, 54.00, 23.50, 54.40]},
+                        {"name": "Northern Frontier", "bbox": [23.00, 54.40, 23.50, 54.70]},
+                        {"name": "Western Logistics", "bbox": [22.60, 53.90, 23.00, 54.30]},
+                    ]
+                ),
+                "description": "Target geographic bounding boxes (geofences) actively polled by STAC collectors",
+                "updated_by": None,
+                "updated_at": "2026-09-28T12:00:00Z",
+            },
+        }
+        self._mock_comments: List[Dict[str, Any]] = [
+            {
+                "id": "c1111111-2222-3333-4444-555555555555",
+                "detection_id": "a1b2c3d4-e5f6-47a8-b901-23456789abcd",
+                "user_id": "00000000-0000-0000-0000-000000000002",
+                "username": "analyst_viper",
+                "comment": "Target shows geometric signature characteristic of mobile radar telemetry dome. Cross-referencing EW logs.",
+                "created_at": "2026-05-15T09:12:00Z",
+            }
+        ]
+        self._mock_detection_audit: List[Dict[str, Any]] = [
+            {
+                "id": "d1111111-2222-3333-4444-555555555555",
+                "detection_id": "d4e5f6a7-b8c9-40d1-e234-56789abcdef0",
+                "previous_state": "PENDING_REVIEW",
+                "new_state": "VERIFIED",
+                "user_id": "00000000-0000-0000-0000-000000000002",
+                "username": "analyst_viper",
+                "note": "Revetment structure confirmed by secondary multi-spectral analysis.",
+                "timestamp": "2026-08-22T10:00:00Z",
+            }
+        ]
+        self._mock_saved_filters: Dict[str, List[Dict[str, Any]]] = {}
 
     def get_connection(self):
         """Obtain a live PostgreSQL connection or return None for fallback."""
@@ -632,6 +707,33 @@ class TriageService:
                             payload.reviewed_by,
                         ],
                     )
+                    detection_audit_query = """
+                    INSERT INTO detection_audit_log (
+                        detection_id,
+                        previous_state,
+                        new_state,
+                        user_id,
+                        username,
+                        note
+                    ) VALUES (
+                        %s::uuid,
+                        %s,
+                        %s,
+                        NULL,
+                        %s,
+                        %s
+                    );
+                    """
+                    cur.execute(
+                        detection_audit_query,
+                        [
+                            detection_id,
+                            prev_status,
+                            payload.review_status.value,
+                            payload.reviewed_by or "analyst",
+                            payload.reviewer_notes,
+                        ],
+                    )
             except Exception as exc:
                 logger.warning(
                     "PostGIS review update failed; updating memory store", error=str(exc)
@@ -655,6 +757,18 @@ class TriageService:
                 "reviewer_notes": payload.reviewer_notes,
                 "reviewed_by": payload.reviewed_by,
                 "reviewed_at": now_iso,
+            }
+        )
+        self._mock_detection_audit.append(
+            {
+                "id": str(uuid.uuid4()),
+                "detection_id": detection_id,
+                "previous_state": prev_status,
+                "new_state": payload.review_status.value,
+                "user_id": None,
+                "username": payload.reviewed_by or "analyst",
+                "note": payload.reviewer_notes,
+                "timestamp": now_iso,
             }
         )
 
@@ -699,6 +813,465 @@ class TriageService:
         except Exception as exc:
             logger.warning("Failed querying review_audit_log table", error=str(exc))
             return list(reversed(self._mock_audit_log))[:limit]
+
+    # =========================================================================
+    # Version 3: Dynamic System Configuration
+    # =========================================================================
+
+    def get_configurations(self) -> List[Dict[str, Any]]:
+        """Retrieve all dynamic system configuration settings."""
+        conn = self.get_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id, key, value, description, updated_by::text, updated_at "
+                        "FROM system_configurations ORDER BY key ASC;"
+                    )
+                    if cur.description:
+                        cols = [desc[0] for desc in cur.description]
+                        return [
+                            {
+                                **dict(zip(cols, row, strict=False)),
+                                "updated_at": row[cols.index("updated_at")].isoformat()
+                                if row[cols.index("updated_at")]
+                                else None,
+                            }
+                            for row in cur.fetchall()
+                        ]
+            except Exception as exc:
+                logger.warning("Failed querying system_configurations table", error=str(exc))
+
+        return list(self._mock_configs.values())
+
+    def get_configuration(self, key: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a specific configuration by its key."""
+        conn = self.get_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id, key, value, description, updated_by::text, updated_at "
+                        "FROM system_configurations WHERE key = %s;",
+                        (key,),
+                    )
+                    row = cur.fetchone()
+                    if row and cur.description:
+                        cols = [desc[0] for desc in cur.description]
+                        res = dict(zip(cols, row, strict=False))
+                        if res.get("updated_at"):
+                            res["updated_at"] = res["updated_at"].isoformat()
+                        return res
+            except Exception as exc:
+                logger.warning(
+                    "Failed querying system_configurations for key", key=key, error=str(exc)
+                )
+
+        return self._mock_configs.get(key)
+
+    def set_configuration(
+        self,
+        key: str,
+        value: str,
+        description: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update or insert a dynamic configuration setting."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        conn = self.get_connection()
+        if conn:
+            try:
+                query = """
+                INSERT INTO system_configurations (key, value, description, updated_by, updated_at)
+                VALUES (%s, %s, %s, %s::uuid, NOW())
+                ON CONFLICT (key) DO UPDATE SET
+                    value = EXCLUDED.value,
+                    description = COALESCE(EXCLUDED.description, system_configurations.description),
+                    updated_by = EXCLUDED.updated_by,
+                    updated_at = NOW()
+                RETURNING id, key, value, description, updated_by::text, updated_at;
+                """
+                with conn.cursor() as cur:
+                    cur.execute(query, (key, value, description, user_id))
+                    row = cur.fetchone()
+                    if row and cur.description:
+                        cols = [desc[0] for desc in cur.description]
+                        res = dict(zip(cols, row, strict=False))
+                        if res.get("updated_at"):
+                            res["updated_at"] = res["updated_at"].isoformat()
+                        self._mock_configs[key] = res
+                        return res
+            except Exception as exc:
+                logger.warning("Failed updating system_configuration", key=key, error=str(exc))
+
+        existing = self._mock_configs.get(key, {})
+        item = {
+            "id": existing.get("id", len(self._mock_configs) + 1),
+            "key": key,
+            "value": value,
+            "description": description or existing.get("description", ""),
+            "updated_by": user_id,
+            "updated_at": now_iso,
+        }
+        self._mock_configs[key] = item
+        return item
+
+    # =========================================================================
+    # Version 3: Analyst Collaboration & Threaded Notes
+    # =========================================================================
+
+    def get_comments(self, detection_id: str) -> List[Dict[str, Any]]:
+        """Retrieve chronological threaded analyst notes for a detection."""
+        conn = self.get_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id::text, detection_id::text, user_id::text, username, comment, created_at "
+                        "FROM detection_comments WHERE detection_id = %s::uuid "
+                        "ORDER BY created_at ASC;",
+                        (detection_id,),
+                    )
+                    if cur.description:
+                        cols = [desc[0] for desc in cur.description]
+                        return [
+                            {
+                                **dict(zip(cols, row, strict=False)),
+                                "created_at": row[cols.index("created_at")].isoformat()
+                                if row[cols.index("created_at")]
+                                else "",
+                            }
+                            for row in cur.fetchall()
+                        ]
+            except Exception as exc:
+                logger.warning("Failed querying detection_comments", error=str(exc))
+
+        return [c for c in self._mock_comments if c["detection_id"] == detection_id]
+
+    def add_comment(
+        self,
+        detection_id: str,
+        comment: str,
+        username: str,
+        user_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Add an analyst note to a detection thread."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        conn = self.get_connection()
+        if conn:
+            try:
+                query = """
+                INSERT INTO detection_comments (detection_id, user_id, username, comment)
+                VALUES (%s::uuid, %s::uuid, %s, %s)
+                RETURNING id::text, detection_id::text, user_id::text, username, comment, created_at;
+                """
+                with conn.cursor() as cur:
+                    cur.execute(query, (detection_id, user_id, username, comment))
+                    row = cur.fetchone()
+                    if row and cur.description:
+                        cols = [desc[0] for desc in cur.description]
+                        res = dict(zip(cols, row, strict=False))
+                        if res.get("created_at"):
+                            res["created_at"] = res["created_at"].isoformat()
+                        self._mock_comments.append(res)
+                        return res
+            except Exception as exc:
+                logger.warning("Failed inserting into detection_comments", error=str(exc))
+
+        new_entry = {
+            "id": str(uuid.uuid4()),
+            "detection_id": detection_id,
+            "user_id": user_id,
+            "username": username,
+            "comment": comment,
+            "created_at": now_iso,
+        }
+        self._mock_comments.append(new_entry)
+        return new_entry
+
+    # =========================================================================
+    # Version 3: Audit History Timeline
+    # =========================================================================
+
+    def get_detection_audit_trail(self, detection_id: str) -> List[Dict[str, Any]]:
+        """Retrieve complete state change audit trail for a specific detection."""
+        conn = self.get_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id::text, detection_id::text, previous_state, new_state, "
+                        "user_id::text, username, note, timestamp "
+                        "FROM detection_audit_log WHERE detection_id = %s::uuid "
+                        "ORDER BY timestamp ASC;",
+                        (detection_id,),
+                    )
+                    if cur.description:
+                        cols = [desc[0] for desc in cur.description]
+                        return [
+                            {
+                                **dict(zip(cols, row, strict=False)),
+                                "timestamp": row[cols.index("timestamp")].isoformat()
+                                if row[cols.index("timestamp")]
+                                else "",
+                            }
+                            for row in cur.fetchall()
+                        ]
+            except Exception as exc:
+                logger.warning("Failed querying detection_audit_log", error=str(exc))
+
+        return [a for a in self._mock_detection_audit if a["detection_id"] == detection_id]
+
+    def log_detection_audit(
+        self,
+        detection_id: str,
+        previous_state: Optional[str],
+        new_state: str,
+        username: str,
+        user_id: Optional[str] = None,
+        note: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Record detection transition event into audit log."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        conn = self.get_connection()
+        if conn:
+            try:
+                query = """
+                INSERT INTO detection_audit_log (detection_id, previous_state, new_state, user_id, username, note)
+                VALUES (%s::uuid, %s, %s, %s::uuid, %s, %s)
+                RETURNING id::text, detection_id::text, previous_state, new_state, user_id::text, username, note, timestamp;
+                """
+                with conn.cursor() as cur:
+                    cur.execute(
+                        query, (detection_id, previous_state, new_state, user_id, username, note)
+                    )
+                    row = cur.fetchone()
+                    if row and cur.description:
+                        cols = [desc[0] for desc in cur.description]
+                        res = dict(zip(cols, row, strict=False))
+                        if res.get("timestamp"):
+                            res["timestamp"] = res["timestamp"].isoformat()
+                        self._mock_detection_audit.append(res)
+                        return res
+            except Exception as exc:
+                logger.warning("Failed inserting into detection_audit_log", error=str(exc))
+
+        record = {
+            "id": str(uuid.uuid4()),
+            "detection_id": detection_id,
+            "previous_state": previous_state,
+            "new_state": new_state,
+            "user_id": user_id,
+            "username": username,
+            "note": note,
+            "timestamp": now_iso,
+        }
+        self._mock_detection_audit.append(record)
+        return record
+
+    # =========================================================================
+    # Version 3: Saved Views & Advanced Filtering
+    # =========================================================================
+
+    def get_saved_filters(self, user_id: str) -> List[Dict[str, Any]]:
+        """Retrieve saved filter views for a specific analyst user."""
+        conn = self.get_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id::text, user_id::text, name, filter_json, created_at "
+                        "FROM saved_filters WHERE user_id = %s::uuid "
+                        "ORDER BY created_at DESC;",
+                        (user_id,),
+                    )
+                    if cur.description:
+                        cols = [desc[0] for desc in cur.description]
+                        return [
+                            {
+                                **dict(zip(cols, row, strict=False)),
+                                "created_at": row[cols.index("created_at")].isoformat()
+                                if row[cols.index("created_at")]
+                                else "",
+                            }
+                            for row in cur.fetchall()
+                        ]
+            except Exception as exc:
+                logger.warning("Failed querying saved_filters", error=str(exc))
+
+        return self._mock_saved_filters.get(user_id, [])
+
+    def create_saved_filter(
+        self,
+        user_id: str,
+        name: str,
+        filter_json: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Save a new filter preset for an analyst."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        conn = self.get_connection()
+        if conn:
+            try:
+                query = """
+                INSERT INTO saved_filters (user_id, name, filter_json)
+                VALUES (%s::uuid, %s, %s::jsonb)
+                RETURNING id::text, user_id::text, name, filter_json, created_at;
+                """
+                with conn.cursor() as cur:
+                    cur.execute(query, (user_id, name, json.dumps(filter_json)))
+                    row = cur.fetchone()
+                    if row and cur.description:
+                        cols = [desc[0] for desc in cur.description]
+                        res = dict(zip(cols, row, strict=False))
+                        if res.get("created_at"):
+                            res["created_at"] = res["created_at"].isoformat()
+                        user_list = self._mock_saved_filters.setdefault(user_id, [])
+                        user_list.append(res)
+                        return res
+            except Exception as exc:
+                logger.warning("Failed creating saved_filter", error=str(exc))
+
+        new_filter = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "name": name,
+            "filter_json": filter_json,
+            "created_at": now_iso,
+        }
+        user_list = self._mock_saved_filters.setdefault(user_id, [])
+        user_list.insert(0, new_filter)
+        return new_filter
+
+    def delete_saved_filter(self, user_id: str, filter_id: str) -> bool:
+        """Delete a saved filter preset."""
+        conn = self.get_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "DELETE FROM saved_filters WHERE id = %s::uuid AND user_id = %s::uuid;",
+                        (filter_id, user_id),
+                    )
+            except Exception as exc:
+                logger.warning("Failed deleting saved_filter", error=str(exc))
+
+        if user_id in self._mock_saved_filters:
+            original_len = len(self._mock_saved_filters[user_id])
+            self._mock_saved_filters[user_id] = [
+                f for f in self._mock_saved_filters[user_id] if f["id"] != filter_id
+            ]
+            return len(self._mock_saved_filters[user_id]) < original_len
+        return True
+
+    # =========================================================================
+    # Version 3: Intelligence Export & Reporting Engine
+    # =========================================================================
+
+    def export_detections(
+        self,
+        detection_ids: Optional[List[str]] = None,
+        zone_id: Optional[str] = None,
+        format: str = "geojson",
+    ) -> tuple[str, str, str]:
+        """Export detections to GeoJSON (for military GIS/ATAK) or CSV summary.
+
+        Returns: (content_string, media_type, filename)
+        """
+        all_detections_res = self.get_detections(limit=1000)
+        features = all_detections_res.get("features", [])
+
+        # Filter by detection IDs if specified
+        if detection_ids:
+            id_set = set(detection_ids)
+            features = [
+                f
+                for f in features
+                if f.get("id") in id_set or f.get("properties", {}).get("id") in id_set
+            ]
+
+        # Filter by zone if specified
+        if zone_id:
+            features = [f for f in features if f.get("properties", {}).get("zone_id") == zone_id]
+
+        if format == "csv":
+            output = io.StringIO()
+            writer = csv.writer(output)
+            writer.writerow(
+                [
+                    "id",
+                    "classification",
+                    "confidence",
+                    "area_sq_meters",
+                    "review_status",
+                    "verified_class",
+                    "priority_score",
+                    "zone_id",
+                    "detection_timestamp",
+                    "baseline_timestamp",
+                    "sensor_source",
+                    "latitude",
+                    "longitude",
+                    "reviewer_notes",
+                    "reviewed_by",
+                    "reviewed_at",
+                ]
+            )
+
+            for feat in features:
+                props = feat.get("properties", {})
+                geom = feat.get("geometry", {})
+                lat_str, lon_str = "", ""
+                if (
+                    geom
+                    and geom.get("type") == "Polygon"
+                    and geom.get("coordinates")
+                    and len(geom["coordinates"]) > 0
+                ):
+                    ring = geom["coordinates"][0]
+                    if ring:
+                        lon = round(sum(p[0] for p in ring) / len(ring), 6)
+                        lat = round(sum(p[1] for p in ring) / len(ring), 6)
+                        lat_str, lon_str = str(lat), str(lon)
+
+                writer.writerow(
+                    [
+                        feat.get("id") or props.get("id", ""),
+                        props.get("classification", ""),
+                        props.get("confidence", ""),
+                        props.get("area_sq_meters", ""),
+                        props.get("review_status", ""),
+                        props.get("verified_class", "") or "",
+                        props.get("priority_score", ""),
+                        props.get("zone_id", "") or "",
+                        props.get("detection_timestamp", ""),
+                        props.get("baseline_timestamp", ""),
+                        props.get("sensor_source", ""),
+                        lat_str,
+                        lon_str,
+                        props.get("reviewer_notes", "") or "",
+                        props.get("reviewed_by", "") or "",
+                        props.get("reviewed_at", "") or "",
+                    ]
+                )
+
+            return output.getvalue(), "text/csv", "caelum_detections_export.csv"
+
+        # GeoJSON export (RFC 7946)
+        export_geojson = {
+            "type": "FeatureCollection",
+            "metadata": {
+                "exported_at": datetime.now(timezone.utc).isoformat(),
+                "system": "Project Caelum-EO GEOINT Platform",
+                "version": "3.0.0",
+                "total_features": len(features),
+            },
+            "features": features,
+        }
+        return (
+            json.dumps(export_geojson, indent=2),
+            "application/geo+json",
+            "caelum_detections_export.geojson",
+        )
 
 
 triage_service = TriageService()

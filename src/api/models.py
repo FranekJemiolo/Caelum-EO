@@ -1,7 +1,7 @@
 """Pydantic Models and Enums for Caelum-EO Triage & Analytical APIs."""
 
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -67,3 +67,81 @@ class ImageryResponse(BaseModel):
     baseline_timestamp: str
     detection_timestamp: str
     stac_metadata: Dict[str, Any] = {}
+
+
+# ============================================================================
+# Version 3 Models: Configuration, Threaded Notes, Audit Log, Saved Filters
+# ============================================================================
+
+
+class SystemConfigItem(BaseModel):
+    """Dynamic system configuration entry."""
+
+    id: Optional[int] = None
+    key: str
+    value: str
+    description: Optional[str] = None
+    updated_by: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class SystemConfigUpdate(BaseModel):
+    """Payload for updating or creating dynamic system configuration."""
+
+    value: str
+    description: Optional[str] = None
+
+
+class DetectionCommentCreate(BaseModel):
+    """Payload for posting a threaded analyst note."""
+
+    comment: str = Field(..., min_length=1, max_length=5000)
+
+
+class DetectionCommentResponse(BaseModel):
+    """Analyst comment response."""
+
+    id: str
+    detection_id: str
+    user_id: Optional[str] = None
+    username: str
+    comment: str
+    created_at: str
+
+
+class DetectionAuditResponse(BaseModel):
+    """Lifecycle audit log entry for detection transitions."""
+
+    id: str
+    detection_id: str
+    previous_state: Optional[str] = None
+    new_state: str
+    user_id: Optional[str] = None
+    username: str
+    note: Optional[str] = None
+    timestamp: str
+
+
+class SavedFilterCreate(BaseModel):
+    """Payload for saving an analyst filter preset."""
+
+    name: str = Field(..., min_length=1, max_length=128)
+    filter_json: Dict[str, Any]
+
+
+class SavedFilterResponse(BaseModel):
+    """Saved analyst filter view."""
+
+    id: str
+    user_id: str
+    name: str
+    filter_json: Dict[str, Any]
+    created_at: str
+
+
+class ExportRequest(BaseModel):
+    """Parameters for exporting intelligence detections."""
+
+    detection_ids: Optional[List[str]] = None
+    zone_id: Optional[str] = None
+    format: str = Field("geojson", pattern="^(geojson|csv)$")
