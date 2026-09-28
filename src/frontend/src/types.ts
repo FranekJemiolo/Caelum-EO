@@ -85,3 +85,46 @@ export interface AuthTokenResponse {
   role: "viewer" | "analyst" | "admin";
   username: string;
 }
+
+export interface DetectionComment {
+  id: string;
+  detection_id: string;
+  user_id?: string | null;
+  username: string;
+  comment: string;
+  created_at: string;
+}
+
+export interface DetectionAuditRecord {
+  id: string;
+  detection_id: string;
+  previous_state?: string | null;
+  new_state: string;
+  user_id?: string | null;
+  username: string;
+  note?: string | null;
+  timestamp: string;
+}
+
+export interface SavedFilter {
+  id: string;
+  user_id: string;
+  name: string;
+  filter_json: {
+    classification?: string;
+    review_status?: string;
+    min_confidence?: number;
+    zone_id?: string;
+    [key: string]: any;
+  };
+  created_at: string;
+}
+
+export interface SystemConfig {
+  id?: number;
+  key: string;
+  value: string;
+  description?: string | null;
+  updated_by?: string | null;
+  updated_at?: string | null;
+}

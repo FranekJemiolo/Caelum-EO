@@ -33,6 +33,7 @@ import { authFetch } from "./auth";
 import { TriageHotlist } from "./components/TriageHotlist";
 import { MultiTemporalInspector } from "./components/MultiTemporalInspector";
 import { ReviewModal } from "./components/ReviewModal";
+import { SavedViewsBar } from "./components/SavedViewsBar";
 
 // Suwalki Gap Strategic Surveillance Corridor Initial Viewport
 const INITIAL_VIEW_STATE = {
@@ -269,6 +270,13 @@ export default function MapComponent({
   );
   const [isHotlistOpen, setIsHotlistOpen] = useState<boolean>(true);
 
+  // Advanced Filtering & Saved Views State
+  const [minConfidence, setMinConfidence] = useState<number>(0);
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  const [reviewStatusFilter, setReviewStatusFilter] = useState<string | null>(
+    null,
+  );
+
   // Version Two State
   const [v2Modality, setV2Modality] = useState<"optical" | "sar" | "fused">(
     "optical",
@@ -350,10 +358,50 @@ export default function MapComponent({
     return (data.features || []).filter((f) => {
       const cls = f.properties?.classification;
       if (!activeClasses.has(cls)) return false;
+      if ((f.properties?.confidence || 0) < minConfidence) return false;
+      if (selectedZone && f.properties?.zone_id !== selectedZone) return false;
+      if (
+        reviewStatusFilter &&
+        f.properties?.review_status !== reviewStatusFilter
+      )
+        return false;
       const ts = new Date(f.properties?.detection_timestamp || 0).getTime();
       return ts <= scrubberTime;
     });
-  }, [data, activeClasses, scrubberTime]);
+  }, [
+    data,
+    activeClasses,
+    minConfidence,
+    selectedZone,
+    reviewStatusFilter,
+    scrubberTime,
+  ]);
+
+  const currentFilters = useMemo(() => {
+    return {
+      classification:
+        activeClasses.size === 1 ? Array.from(activeClasses)[0] : undefined,
+      minConfidence: minConfidence > 0 ? minConfidence : undefined,
+      zoneId: selectedZone || undefined,
+      reviewStatus: reviewStatusFilter || undefined,
+    };
+  }, [activeClasses, minConfidence, selectedZone, reviewStatusFilter]);
+
+  const handleApplyFilter = (filters: {
+    classification?: string;
+    minConfidence?: number;
+    zoneId?: string;
+    reviewStatus?: string;
+  }) => {
+    if (filters.classification) {
+      setActiveClasses(new Set([filters.classification]));
+    } else {
+      setActiveClasses(new Set(Object.keys(CLASSIFICATION_COLORS)));
+    }
+    setMinConfidence(filters.minConfidence || 0);
+    setSelectedZone(filters.zoneId || null);
+    setReviewStatusFilter(filters.reviewStatus || null);
+  };
 
   // Camera FlyTo Animation on target selection
   const handleSelectTarget = useCallback((target: DetectionFeature) => {
@@ -888,6 +936,15 @@ export default function MapComponent({
         </aside>
       )}
 
+      {/* Analyst Saved Views Chips Bar (Top Center) */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
+        <SavedViewsBar
+          currentFilters={currentFilters}
+          onApplyFilter={handleApplyFilter}
+          apiUrl={apiUrl}
+        />
+      </div>
+
       {/* Priority Triage Hotlist Drawer (Right) */}
       <TriageHotlist
         items={filteredFeatures}
@@ -899,6 +956,7 @@ export default function MapComponent({
           setInspectTarget(target);
         }}
         selectedId={selectedTarget?.id || null}
+        apiUrl={apiUrl}
       />
 
       {/* Multi-Temporal Image Comparison Inspector Modal */}
@@ -922,6 +980,8 @@ export default function MapComponent({
           onClose={() => setReviewTarget(null)}
           onSubmitReview={handleSubmitReview}
           onNextQueueItem={handleNextQueueItem}
+          currentUser={currentUser}
+          apiUrl={apiUrl}
         />
       )}
 
