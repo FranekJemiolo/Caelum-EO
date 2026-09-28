@@ -77,3 +77,7 @@ coverage.xml
 # Docker / Logs
 *.log
 docker-data/
+
+# Air-Gapped Backups
+backups/*.tar.gz
+backups/*.sha256

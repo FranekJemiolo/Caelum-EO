@@ -257,8 +257,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
           timestamp: new Date().toISOString(),
           operator: currentUser?.username || "admin",
           target_url: webhookUrl,
-          message:
-            "Air-Gapped Webhook Integration Test from Project Caelum-EO",
+          message: "Air-Gapped Webhook Integration Test from Project Caelum-EO",
         }),
       });
       if (res.ok) {
@@ -644,7 +643,8 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       <div>
                         Adjusting this value to <b>0.85</b> filters out fleeting
                         agricultural and cloud edge variations, restricting
-                        alerts to high-confidence structural military build-outs.
+                        alerts to high-confidence structural military
+                        build-outs.
                       </div>
                     </div>
                   </div>
@@ -657,8 +657,8 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                           STAC Catalog Polling Cadence (Seconds)
                         </label>
                         <p className="text-[11px] text-slate-400">
-                          Frequency at which the STAC worker polls the Copernicus
-                          CDSE catalog for new acquisitions.
+                          Frequency at which the STAC worker polls the
+                          Copernicus CDSE catalog for new acquisitions.
                         </p>
                       </div>
                       <input
@@ -801,7 +801,8 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-400 font-mono">
-                        Auto-provisioned Caelum-EO Enterprise Overview dashboard.
+                        Auto-provisioned Caelum-EO Enterprise Overview
+                        dashboard.
                       </p>
                       <a
                         href="http://localhost:3002"

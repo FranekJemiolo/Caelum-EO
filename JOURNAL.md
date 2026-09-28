@@ -196,3 +196,21 @@
   3. **Continuous Active Learning & LoRA Worker:** Built `src/mlops/active_learning.py` to automatically harvest hard negative/positive samples from `review_audit_log`, train LoRA adapter weights ($r=16, \alpha=32$), and benchmark validation metrics before staging.
   4. **Tactical Edge Delta Protocol:** Engineered `src/edge/delta_protocol.py` and `src/edge/sync.py` providing $<2$ KB binary delta payloads, bi-directional store-and-forward sync, and cryptographic HMAC authentication.
 - **Impact:** Delivers complete Version Two planetary-scale capability, maintains all-weather surveillance resilience under heavy cloud obstruction, scales spatial queries to 50M+ polygons, and supports tactical disconnected edge operations.
+
+---
+
+## [2026-09-28] - Phase 5 - Version 3: Enterprise Readiness, Analyst Usability & IT Admin Maintainability
+
+- **Context:** While the automated pipeline (v1) and bare-metal streaming/security architecture (v2) are fully functional, operational adoption by real defense intelligence units requires enterprise reliability: shift-handover collaboration, tactical geospatial exports (ATAK / NATO GIS), on-premises observability without SaaS leaks, dynamic configuration without restarting containers, fault tolerance against corrupted rasters/OOMs, and automated air-gapped disaster recovery.
+- **Alternatives Considered:**
+  1. SaaS Observability (DataDog, Sentry, Grafana Cloud) vs. 100% on-premises Prometheus and Grafana stack.
+  2. Unhandled container crashes on corrupted GeoTIFFs / PyTorch OOMs vs. Kafka Dead Letter Queues (DLQ) with local file-backed fallbacks.
+  3. Static `.env` configuration file updates requiring Docker container restarts vs. dynamic `system_configurations` PostGIS table with live poller / vectorizer re-evaluation.
+  4. Manual shell commands for database dumps and MinIO bucket copies vs. automated, timestamped `backup.sh` and `restore.sh` scripts with SHA-256 verification.
+- **Decision & Rationale:**
+  1. **Local Observability Stack:** Integrated Prometheus (`:9090`) and Grafana (`:3002`) into `docker-compose.prod.yml`. Instrumented FastAPI and Kafka workers using `prometheus_client`. Built and provisioned the `caelum_enterprise_overview.json` dashboard tracking Kafka consumer lag, GPU memory utilization, normalized API latency, MinIO disk space, and DLQ fault rates.
+  2. **Dead Letter Queue (DLQ):** Created `src/ops/dlq.py` managing the `caelum.dlq` topic. Wrapped ETL windowing and ML inference in exception handlers that capture corrupted tiles, stack traces, and partition offsets, routing them to the DLQ and continuing pipeline processing.
+  3. **Dynamic Configuration API & UI:** Added `system_configurations` table and Admin Settings Modal in React (`src/frontend/src/components/AdminSettingsModal.tsx`). Enabled `admin` operators to dynamically add/remove target STAC geofences, adjust the ML confidence threshold (e.g., from `0.60` to `0.85`), and update webhook URLs. Bound `STACIngestionWorker` and `VectorizationEngine` directly to the PostGIS configuration table.
+  4. **Analyst Workflow Upgrades:** Built RFC 7946 GeoJSON and CSV export engine (`/api/v1/export`) with multi-select bulk actions in the Triage Drawer; implemented analyst comment threading (`detection_comments`) in the Review Modal; created immutable lifecycle audit timelines (`detection_audit_log`) in the Multi-Temporal Inspector; and introduced quick-access preset chips for saved views (`saved_filters`).
+  5. **Air-Gapped Backup & Restore:** Authored `scripts/backup.sh` and `scripts/restore.sh` automating `pg_dump` of PostGIS database schemas and synchronization of MinIO `caelum-chips` and `caelum-vectors` into timestamped tarballs with SHA-256 manifest verification.
+- **Impact:** Achieves complete Version 3 enterprise maturity, empowering intelligence analysts with collaboration and briefing tools while providing IT administrators with self-contained, air-gapped observability and disaster recovery.

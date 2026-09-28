@@ -252,26 +252,75 @@ To eliminate the GeoJSON browser bottleneck and avoid expensive disk-bound chip 
 
 ---
 
-## 🚨 Proactive Observability & Data Lifecycle Management
+### 3. Air-Gapped Observability Stack (Prometheus & Grafana)
 
-### 1. High-Priority Webhook Alerting (`src/api/webhooks.py`)
+Project Caelum-EO embeds a 100% on-premises observability stack to monitor pipeline throughput, latency, and hardware health without external telemetry leaks:
 
-- Automatically dispatches standardized SIEM JSON alert payloads whenever incoming ML detections exceed `priority_score > 0.85`.
-- Configure comma-separated webhook destinations via environment variable:
-  ```bash
-  export WEBHOOK_URLS="https://siem.defense.internal/alerts,https://hooks.slack.com/services/..."
-  ```
+- **Prometheus Scraper (`http://localhost:9090`):** Automatically scrapes FastAPI metrics endpoint (`/metrics`), Kafka worker ingestion rates, Redpanda broker offsets, and MinIO storage volumes.
+- **Grafana Dashboards (`http://localhost:3002`):** Pre-provisioned on startup (`admin` / `admin`). The **Caelum-EO Enterprise Overview** dashboard visualizes:
+  - **Kafka Queue Lag:** Real-time consumer offset lag monitoring whether ML workers keep up with the Copernicus firehose.
+  - **GPU Memory Utilization:** VRAM saturation across active inference nodes.
+  - **API Latency & HTTP 500 Error Rates:** Normalized per-endpoint response histograms.
+  - **MinIO Disk Capacity:** Remaining storage across `caelum-chips` and `caelum-vectors`.
+  - **DLQ Fault Rates:** Active count of corrupted tiles or out-of-memory exceptions routed to Dead Letter Queues.
 
-### 2. Data Lifecycle Retention Pruner (`src/etl/pruner.py`)
+### 4. Dead Letter Queue (DLQ) & Fault Tolerance (`src/ops/dlq.py`)
 
-- Automatically prunes raw Sentinel GeoTIFF rasters older than 7 days from `caelum-raw` or local `data/raw/`, preventing disk exhaustion.
-- Cropped anomaly chips (`data/chips/`) and PostGIS vector records are permanently retained.
-- Run manually or schedule via cron:
-  ```bash
-  python -m src.etl.pruner --retention-days 7 --dir data/raw
-  # Dry-run scan:
-  python -m src.etl.pruner --dry-run
-  ```
+- Failed or corrupted STAC items and model out-of-memory (OOM) exceptions are diverted to the Kafka topic `caelum.dlq` (`caelum.dlq` local store fallback).
+- Prevents container crashes and ensures unparseable imagery does not block pipeline processing of subsequent geographic tiles.
+- IT staff and analysts can query recent DLQ records via `GET /api/v1/ops/dlq` or via the Admin Settings Console.
+
+### 5. Automated Air-Gapped Backup & Restore Engine
+
+Reliable offline disaster recovery scripts to back up and restore PostGIS state and MinIO object storage:
+
+```bash
+# Execute full timestamped backup to ./backups/ (pg_dump + MinIO bucket sync + SHA-256 manifest):
+./scripts/backup.sh
+
+# Specify custom target directory or simulation dry run:
+./scripts/backup.sh --output-dir /mnt/external_drive/backups
+./scripts/backup.sh --dry-run
+
+# Restore system state from backup archive (with SHA-256 verification):
+./scripts/restore.sh ./backups/caelum_backup_20260928_210000Z.tar.gz
+
+# Automated restore simulation without modifying state:
+./scripts/restore.sh --dry-run ./backups/caelum_backup_20260928_210000Z.tar.gz
+```
+
+---
+
+## 🎯 Version 3: Analyst Usability & Enterprise Operations
+
+Version 3 transforms Project Caelum-EO into a daily driver for operational intelligence teams:
+
+### 1. Intelligence Export & Reporting Engine (`/api/v1/export`)
+
+- **ATAK / NATO GIS Compatibility:** Export verified detections or tactical zones directly to standard **RFC 7946 GeoJSON** for ingestion into tactical military GIS software (ATAK, WinTAK, FalconView).
+- **Briefing Summaries:** Generate structured **CSV reports** summarizing classification, confidence, physical area ($m^2$), priority scores, review status, and sensor metadata.
+- **Bulk Actions:** Analysts can select multiple items in the Triage Drawer and click "Export to GeoJSON" or "Export to CSV" in one step.
+
+### 2. Analyst Collaboration & Threaded Notes
+
+- Multi-analyst shift handovers enabled via the `detection_comments` table.
+- Analysts leave timestamped contextual observations (e.g., _"Checked historical Landsat imagery; clearing existed in 2021. Flagging as False Positive."_) directly in the Review Modal.
+
+### 3. Cryptographic Lifecycle Audit Timeline
+
+- Complete lifecycle accountability via `detection_audit_log`.
+- Tracks every status transition (e.g., `PENDING_REVIEW` $\rightarrow$ `VERIFIED`), recording previous state, new state, operating user, and microsecond timestamp.
+- Visualized in the Multi-Temporal Inspector under the "Audit History" tab.
+
+### 4. Saved Filter Views & Quick Chips
+
+- Analysts save complex operational filters (e.g., `Radar Domes > 90% in Suwalki Corridor`) to the `saved_filters` table.
+- Accessible as one-click quick-access preset chips situated directly above the Deck.gl map canvas.
+
+### 5. Dynamic Configuration API & Admin Console
+
+- Modify active STAC target geofences, ML confidence thresholds (e.g., adjusting from `0.60` to `0.85`), and webhook alert URLs in real time.
+- Python ETL and vectorization workers dynamically fetch these settings from the `system_configurations` table on every polling cycle, eliminating `.env` edits and container restarts.
 
 ---
 
