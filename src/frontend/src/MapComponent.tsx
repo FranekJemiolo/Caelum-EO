@@ -19,6 +19,7 @@ import {
   Sparkles,
   Share2,
   Database,
+  Sliders,
 } from "lucide-react";
 
 import {
@@ -34,6 +35,7 @@ import { TriageHotlist } from "./components/TriageHotlist";
 import { MultiTemporalInspector } from "./components/MultiTemporalInspector";
 import { ReviewModal } from "./components/ReviewModal";
 import { SavedViewsBar } from "./components/SavedViewsBar";
+import { AdminSettingsModal } from "./components/AdminSettingsModal";
 
 // Suwalki Gap Strategic Surveillance Corridor Initial Viewport
 const INITIAL_VIEW_STATE = {
@@ -269,6 +271,7 @@ export default function MapComponent({
     null,
   );
   const [isHotlistOpen, setIsHotlistOpen] = useState<boolean>(true);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
 
   // Advanced Filtering & Saved Views State
   const [minConfidence, setMinConfidence] = useState<number>(0);
@@ -682,15 +685,26 @@ export default function MapComponent({
                 </div>
               </div>
             </div>
-            {onLogout && (
-              <button
-                onClick={onLogout}
-                title="Sign Out Operator"
-                className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
-              >
-                <LogOut size={13} />
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              {currentUser.role === "admin" && (
+                <button
+                  onClick={() => setIsAdminModalOpen(true)}
+                  title="System Configuration & Admin Console"
+                  className="p-1 rounded text-cyan-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors"
+                >
+                  <Sliders size={13} />
+                </button>
+              )}
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  title="Sign Out Operator"
+                  className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+                >
+                  <LogOut size={13} />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -984,6 +998,14 @@ export default function MapComponent({
           apiUrl={apiUrl}
         />
       )}
+
+      {/* Dynamic Admin Configuration Console Modal */}
+      <AdminSettingsModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        currentUser={currentUser || null}
+        apiUrl={apiUrl}
+      />
 
       {/* Bottom Temporal Timeline Scrubber */}
       <footer className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[min(820px,calc(100vw-32px))] z-10 bg-slate-950/90 backdrop-blur-xl border border-slate-800 rounded-2xl px-6 py-3.5 shadow-2xl flex items-center gap-4 text-slate-100">

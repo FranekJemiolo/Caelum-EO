@@ -97,6 +97,23 @@ class PostGISPersistence:
                 self.dry_run = True
         return self._conn
 
+    def get_system_config(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Query a dynamic system configuration value from PostGIS system_configurations."""
+        conn = self.get_connection()
+        if conn and not self.dry_run:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT value FROM system_configurations WHERE key = %s LIMIT 1;",
+                        (key,),
+                    )
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        return str(row[0])
+            except Exception as exc:
+                logger.debug("Failed fetching configuration from PostGIS", key=key, error=str(exc))
+        return default
+
     def insert_detection(self, record: DetectionRecord) -> bool:
         """Insert detection record into infrastructure_detections with zone lookup and alert dispatch."""
         conn = self.get_connection()
@@ -317,6 +334,13 @@ class VectorizationEngine:
         records: List[DetectionRecord] = []
         meta = stac_metadata or {}
 
+        # Fetch dynamic ML confidence threshold from DB (default 0.60)
+        conf_str = self.db.get_system_config("ml_confidence_threshold", "0.60")
+        try:
+            min_confidence = float(conf_str) if conf_str else 0.60
+        except ValueError:
+            min_confidence = 0.60
+
         for geojson_geom, pixel_bbox, count in extracted_polygons:
             min_r, min_c, max_r, max_c = pixel_bbox
             chip = full_raster_cube[:, min_r : max_r + 1, min_c : max_c + 1]
@@ -326,6 +350,16 @@ class VectorizationEngine:
             cls_result = self.classifier.classify_cluster(
                 chip=chip, bbox=pixel_bbox, pixel_count=count, mean_anomaly_prob=mean_prob
             )
+
+            # Filter out detections below dynamic confidence threshold
+            if cls_result.confidence < min_confidence:
+                logger.debug(
+                    "Filtered out low-confidence detection based on dynamic threshold",
+                    confidence=cls_result.confidence,
+                    threshold=min_confidence,
+                    classification=cls_result.label,
+                )
+                continue
 
             record = DetectionRecord(
                 geometry=geojson_geom,

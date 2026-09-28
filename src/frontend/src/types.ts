@@ -128,3 +128,9 @@ export interface SystemConfig {
   updated_by?: string | null;
   updated_at?: string | null;
 }
+
+export interface GeofenceConfig {
+  name: string;
+  bbox: [number, number, number, number];
+  description?: string;
+}

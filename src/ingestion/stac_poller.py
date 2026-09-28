@@ -11,7 +11,7 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import click
 import pystac_client
@@ -233,25 +233,151 @@ class STACIngestionWorker:
             )
             return False
 
-    def run_polling_cycle(self, bbox: Optional[List[float]] = None, days_lookback: int = 7) -> int:
-        """Execute one complete polling and publishing cycle."""
-        target_bbox = bbox or DEFAULT_EASTERN_EUROPE_BBOX
+    def fetch_target_geofences_from_db(self) -> List[Dict[str, Any]]:
+        """Fetch target monitoring geofences dynamically from PostGIS system_configurations.
+
+        Falls back to default bounding box if database is offline, uninitialized, or empty.
+        """
+        import psycopg2
+
+        postgres_host = os.getenv("POSTGRES_HOST", "localhost")
+        postgres_port = int(os.getenv("POSTGRES_PORT", 5432))
+        postgres_db = os.getenv("POSTGRES_DB", "caelum_geoint")
+        postgres_user = os.getenv("POSTGRES_USER", "caelum_user")
+        postgres_password = os.getenv("POSTGRES_PASSWORD", "caelum_secure_password")
+
+        try:
+            conn = psycopg2.connect(
+                host=postgres_host,
+                port=postgres_port,
+                dbname=postgres_db,
+                user=postgres_user,
+                password=postgres_password,
+                connect_timeout=3,
+            )
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT value FROM system_configurations WHERE key = 'target_geofences' LIMIT 1;"
+                )
+                row = cur.fetchone()
+                if row and row[0]:
+                    raw_val = row[0]
+                    parsed = json.loads(raw_val) if isinstance(raw_val, str) else raw_val
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        geofences: List[Dict[str, Any]] = []
+                        for item in parsed:
+                            if isinstance(item, dict) and "bbox" in item:
+                                geofences.append(
+                                    {
+                                        "name": item.get("name", "Target Zone"),
+                                        "bbox": item["bbox"],
+                                    }
+                                )
+                            elif isinstance(item, list) and len(item) == 4:
+                                geofences.append(
+                                    {
+                                        "name": "Custom Geofence",
+                                        "bbox": item,
+                                    }
+                                )
+                        if geofences:
+                            logger.info(
+                                "Retrieved dynamic geofences from PostGIS system_configurations",
+                                count=len(geofences),
+                            )
+                            return geofences
+            conn.close()
+        except Exception as exc:
+            logger.warning(
+                "Could not fetch dynamic geofences from DB; falling back to default",
+                error=str(exc),
+            )
+
+        return [{"name": "Default Eastern Europe Corridor", "bbox": DEFAULT_EASTERN_EUROPE_BBOX}]
+
+    def fetch_polling_interval_from_db(self, default_interval: int = 300) -> int:
+        """Fetch dynamic polling interval (in seconds) from PostGIS system_configurations."""
+        import psycopg2
+
+        postgres_host = os.getenv("POSTGRES_HOST", "localhost")
+        postgres_port = int(os.getenv("POSTGRES_PORT", 5432))
+        postgres_db = os.getenv("POSTGRES_DB", "caelum_geoint")
+        postgres_user = os.getenv("POSTGRES_USER", "caelum_user")
+        postgres_password = os.getenv("POSTGRES_PASSWORD", "caelum_secure_password")
+
+        try:
+            conn = psycopg2.connect(
+                host=postgres_host,
+                port=postgres_port,
+                dbname=postgres_db,
+                user=postgres_user,
+                password=postgres_password,
+                connect_timeout=3,
+            )
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT value FROM system_configurations WHERE key = 'stac_polling_interval_seconds' LIMIT 1;"
+                )
+                row = cur.fetchone()
+                if row and row[0]:
+                    val = int(row[0])
+                    if val > 0:
+                        return val
+            conn.close()
+        except Exception as exc:
+            logger.debug("Failed fetching polling interval from DB; using default", error=str(exc))
+
+        return default_interval
+
+    def run_polling_cycle(
+        self,
+        bbox: Optional[List[float]] = None,
+        days_lookback: int = 7,
+    ) -> int:
+        """Execute one complete polling and publishing cycle across all target geofences."""
+        if bbox is not None:
+            active_geofences = [{"name": "Manual Override Geofence", "bbox": bbox}]
+        else:
+            active_geofences = self.fetch_target_geofences_from_db()
+
         end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(days=days_lookback)
 
-        scenes = self.query_sentinel2_l2a(
-            bbox=target_bbox, start_time=start_time, end_time=end_time
-        )
-
         published_count = 0
-        for scene in scenes:
-            if scene.item_id not in self.seen_item_ids:
-                if self.publish_to_kafka(scene):
-                    self.seen_item_ids.add(scene.item_id)
-                    published_count += 1
+        total_queried = 0
+
+        for gf in active_geofences:
+            gf_bbox: List[float] = [float(str(c)) for c in gf["bbox"]]
+            gf_name = gf.get("name", "Target Geofence")
+            logger.info("Executing STAC poll for geofence", geofence=gf_name, bbox=gf_bbox)
+            try:
+                scenes = self.query_sentinel2_l2a(
+                    bbox=gf_bbox, start_time=start_time, end_time=end_time
+                )
+                total_queried += len(scenes)
+                for scene in scenes:
+                    if scene.item_id not in self.seen_item_ids:
+                        if self.publish_to_kafka(scene):
+                            self.seen_item_ids.add(scene.item_id)
+                            published_count += 1
+            except Exception as exc:
+                logger.error(
+                    "Error querying STAC for geofence; sending to DLQ",
+                    geofence=gf_name,
+                    error=str(exc),
+                )
+                dlq_manager.send_to_dlq(
+                    failed_topic=self.kafka_topic,
+                    original_payload={"geofence": gf, "days_lookback": days_lookback},
+                    error=exc,
+                    context={"geofence_name": gf_name, "bbox": gf_bbox},
+                )
 
         logger.info(
-            "Completed polling cycle", new_published=published_count, total_queried=len(scenes)
+            "Completed polling cycle across all geofences",
+            geofences_count=len(active_geofences),
+            new_published=published_count,
+            total_queried=total_queried,
         )
         return published_count
 
@@ -272,12 +398,14 @@ def main(once: bool, dry_run: bool, lookback: int):
         worker.run_polling_cycle(days_lookback=lookback)
         sys.exit(0)
     else:
-        logger.info("Entering continuous polling daemon loop")
+        logger.info("Entering continuous dynamic polling daemon loop")
         import time
 
         while True:
             worker.run_polling_cycle(days_lookback=lookback)
-            time.sleep(3600)
+            sleep_interval = worker.fetch_polling_interval_from_db(default_interval=300)
+            logger.info("Sleeping until next dynamic STAC polling cycle", seconds=sleep_interval)
+            time.sleep(sleep_interval)
 
 
 if __name__ == "__main__":
