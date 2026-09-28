@@ -429,6 +429,13 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
 
             {/* Tab Contents */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {loading && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800/60 border border-slate-700/60 text-xs font-mono text-cyan-300">
+                  <RefreshCw size={14} className="animate-spin" />
+                  Synchronizing configuration from PostGIS...
+                </div>
+              )}
+
               {/* TAB 1: GEOFENCES */}
               {activeTab === "geofences" && (
                 <div className="space-y-6">
@@ -499,7 +506,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                       <Plus size={14} className="text-cyan-400" />
                       Add Target Geographic Bounding Box
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
                       <div className="md:col-span-2">
                         <label className="text-[10px] font-mono text-slate-400 block mb-1">
                           ZONE NAME
@@ -542,6 +549,17 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                           type="text"
                           value={maxLon}
                           onChange={(e) => setMaxLon(e.target.value)}
+                          className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-mono text-slate-400 block mb-1">
+                          MAX LAT (N)
+                        </label>
+                        <input
+                          type="text"
+                          value={maxLat}
+                          onChange={(e) => setMaxLat(e.target.value)}
                           className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-400"
                         />
                       </div>
