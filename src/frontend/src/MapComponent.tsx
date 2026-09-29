@@ -21,6 +21,7 @@ import {
   Database,
   Sliders,
   Mountain,
+  FileText,
 } from "lucide-react";
 
 import {
@@ -37,6 +38,7 @@ import { MultiTemporalInspector } from "./components/MultiTemporalInspector";
 import { ReviewModal } from "./components/ReviewModal";
 import { SavedViewsBar } from "./components/SavedViewsBar";
 import { AdminSettingsModal } from "./components/AdminSettingsModal";
+import { SitrepModal } from "./components/SitrepModal";
 
 // Suwalki Gap Strategic Surveillance Corridor Initial Viewport
 const INITIAL_VIEW_STATE = {
@@ -273,6 +275,7 @@ export default function MapComponent({
   );
   const [isHotlistOpen, setIsHotlistOpen] = useState<boolean>(true);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
+  const [isSitrepModalOpen, setIsSitrepModalOpen] = useState<boolean>(false);
 
   // 3D Terrain & Viewshed Analytics State
   const [showTerrain3D, setShowTerrain3D] = useState<boolean>(false);
@@ -768,6 +771,13 @@ export default function MapComponent({
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsSitrepModalOpen(true)}
+                title="Daily AI Intelligence SITREPs (Ollama Air-Gapped)"
+                className="p-1 rounded text-emerald-400 hover:text-emerald-300 hover:bg-slate-800 transition-colors"
+              >
+                <FileText size={13} />
+              </button>
               {currentUser.role === "admin" && (
                 <button
                   onClick={() => setIsAdminModalOpen(true)}
@@ -1139,6 +1149,14 @@ export default function MapComponent({
       <AdminSettingsModal
         isOpen={isAdminModalOpen}
         onClose={() => setIsAdminModalOpen(false)}
+        currentUser={currentUser || null}
+        apiUrl={apiUrl}
+      />
+
+      {/* Daily Generative Intelligence SITREP Modal */}
+      <SitrepModal
+        isOpen={isSitrepModalOpen}
+        onClose={() => setIsSitrepModalOpen(false)}
         currentUser={currentUser || null}
         apiUrl={apiUrl}
       />

@@ -3,12 +3,16 @@
 import numpy as np
 import pytest
 
-from services.inference.cluster_extractor import AnomalyCluster, SpatialClusterExtractor
-from services.inference.config import ModelSettings
-from services.inference.geosam_vectorizer import GeoSAMVectorizer
-from services.inference.pipeline import GEOINTInferencePipeline
-from services.inference.prithvi_detector import PrithviChangeDetector
-from services.inference.yolo_classifier import YOLOInfrastructureClassifier
+torch = pytest.importorskip(
+    "torch", reason="torch not installed; install the 'ml' extra to run ML tests"
+)
+
+from services.inference.cluster_extractor import AnomalyCluster, SpatialClusterExtractor  # noqa: E402
+from services.inference.config import ModelSettings  # noqa: E402
+from services.inference.geosam_vectorizer import GeoSAMVectorizer  # noqa: E402
+from services.inference.pipeline import GEOINTInferencePipeline  # noqa: E402
+from services.inference.prithvi_detector import PrithviChangeDetector  # noqa: E402
+from services.inference.yolo_classifier import YOLOInfrastructureClassifier  # noqa: E402
 
 
 @pytest.fixture

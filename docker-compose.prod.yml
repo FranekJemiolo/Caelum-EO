@@ -294,6 +294,29 @@ services:
     networks:
       - caelum-net-prod
 
+  # 13. Local Air-Gapped LLM Inference (Ollama)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: caelum-ollama-prod
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11434:11434"
+    environment:
+      - OLLAMA_MODELS=/root/.ollama/models
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=2
+    volumes:
+      - ollama_prod_data:/root/.ollama
+    networks:
+      - caelum-net-prod
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
 networks:
   caelum-net-prod:
     driver: bridge
@@ -307,3 +330,6 @@ volumes:
     driver: local
   grafana_prod_data:
     driver: local
+  ollama_prod_data:
+    driver: local
+

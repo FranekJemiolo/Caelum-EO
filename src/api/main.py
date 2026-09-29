@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from PIL import Image
@@ -33,6 +33,8 @@ from src.api.models import (
     ReviewResponse,
     SavedFilterCreate,
     SavedFilterResponse,
+    SitrepGenerateRequest,
+    SitrepResponse,
     SystemConfigItem,
     SystemConfigUpdate,
     ViewshedRequest,
@@ -40,6 +42,7 @@ from src.api.models import (
     ZoneSummary,
 )
 from src.api.service import triage_service
+from src.api.sitrep_generator import sitrep_generator
 from src.ops import (
     HTTP_REQUEST_DURATION_SECONDS,
     HTTP_REQUESTS_TOTAL,
@@ -566,6 +569,64 @@ def compute_viewshed(
         target_height=payload.target_height,
         max_radius_km=payload.max_radius_km,
     )
+
+
+# --- 8. Version 4: Generative AI Daily SITREPs ---
+@app.get("/api/v1/sitreps", response_model=List[SitrepResponse])
+def list_sitreps(
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    """Retrieve recent military situation reports (SITREPs)."""
+    return sitrep_generator.list_sitreps(limit=limit)
+
+
+@app.post("/api/v1/sitreps/generate", response_model=SitrepResponse)
+def generate_sitrep(
+    payload: SitrepGenerateRequest,
+    current_user: User = Depends(require_roles(["admin", "analyst"])),
+) -> Dict[str, Any]:
+    """Generate a daily military situation report using local Ollama LLM."""
+    return sitrep_generator.generate_sitrep(
+        hours_lookback=payload.hours_lookback,
+        model_name=payload.model,
+        title=payload.title,
+        zone_id=payload.zone_id,
+    )
+
+
+@app.get("/api/v1/sitreps/{report_id}", response_model=SitrepResponse)
+def get_sitrep(
+    report_id: str,
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Retrieve detailed SITREP report by ID."""
+    report = sitrep_generator.get_sitrep(report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="SITREP report not found.")
+    return report
+
+
+@app.put("/api/v1/sitreps/{report_id}", response_model=SitrepResponse)
+def update_sitrep(
+    report_id: str,
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(require_roles(["admin", "analyst"])),
+) -> Dict[str, Any]:
+    """Allow an analyst to edit and update a generated SITREP before final briefing."""
+    content = payload.get("sitrep_content") or payload.get("content")
+    if not content:
+        raise HTTPException(
+            status_code=400, detail="Field 'sitrep_content' or 'content' is required."
+        )
+    updated = sitrep_generator.update_sitrep(
+        report_id=report_id,
+        sitrep_content=content,
+        title=payload.get("title"),
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="SITREP report not found.")
+    return updated
 
 
 if __name__ == "__main__":
