@@ -23,7 +23,9 @@ from PIL import Image
 
 from src.api.auth import User, get_current_user, require_roles
 from src.api.auth import router as auth_router
+from src.api.cot_dispatcher import cot_dispatcher
 from src.api.models import (
+    CoTBroadcastResponse,
     DetectionAuditResponse,
     DetectionCommentCreate,
     DetectionCommentResponse,
@@ -627,6 +629,35 @@ def update_sitrep(
     if not updated:
         raise HTTPException(status_code=404, detail="SITREP report not found.")
     return updated
+
+
+# --- 9. Version 4: Tactical Edge Cursor-on-Target (CoT) ATAK Dispatch ---
+@app.post("/api/v1/cot/broadcast/{detection_id}", response_model=CoTBroadcastResponse)
+def broadcast_cot(
+    detection_id: str,
+    current_user: User = Depends(require_roles(["admin", "analyst"])),
+) -> Dict[str, Any]:
+    """Broadcast a verified GEOINT detection as Cursor-on-Target (CoT) XML to ATAK network."""
+    detection = triage_service.get_detection_by_id(detection_id)
+    if not detection:
+        raise HTTPException(status_code=404, detail="Detection not found.")
+
+    res = cot_dispatcher.dispatch_detection(detection)
+    return res
+
+
+@app.get("/api/v1/cot/preview/{detection_id}")
+def preview_cot(
+    detection_id: str,
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    """Preview standard Cursor-on-Target (CoT) XML payload without sending over network."""
+    detection = triage_service.get_detection_by_id(detection_id)
+    if not detection:
+        raise HTTPException(status_code=404, detail="Detection not found.")
+
+    xml_str, uid, cot_type, callsign = cot_dispatcher.serialize_cot_xml(detection)
+    return Response(content=xml_str, media_type="application/xml")
 
 
 if __name__ == "__main__":

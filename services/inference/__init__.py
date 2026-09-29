@@ -26,4 +26,3 @@ except ImportError:
         "ModelSettings",
         "inference_settings",
     ]
-

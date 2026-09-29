@@ -772,6 +772,20 @@ class TriageService:
             }
         )
 
+        # Trigger tactical edge ATAK Cursor-on-Target (CoT) broadcast upon verification
+        if payload.review_status == ReviewStatus.VERIFIED:
+            try:
+                from src.api.cot_dispatcher import cot_dispatcher
+
+                record = self.get_detection_by_id(detection_id) or current
+                cot_dispatcher.dispatch_detection(record)
+            except Exception as cot_err:
+                logger.warning(
+                    "Automated CoT tactical broadcast failed",
+                    detection_id=detection_id,
+                    error=str(cot_err),
+                )
+
         return ReviewResponse(
             id=detection_id,
             review_status=payload.review_status,

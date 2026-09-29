@@ -7,7 +7,10 @@ torch = pytest.importorskip(
     "torch", reason="torch not installed; install the 'ml' extra to run ML tests"
 )
 
-from services.inference.cluster_extractor import AnomalyCluster, SpatialClusterExtractor  # noqa: E402
+from services.inference.cluster_extractor import (  # noqa: E402
+    AnomalyCluster,
+    SpatialClusterExtractor,
+)
 from services.inference.config import ModelSettings  # noqa: E402
 from services.inference.geosam_vectorizer import GeoSAMVectorizer  # noqa: E402
 from services.inference.pipeline import GEOINTInferencePipeline  # noqa: E402

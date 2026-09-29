@@ -282,6 +282,10 @@ export default function MapComponent({
   const [viewshedFeature, setViewshedFeature] = useState<any | null>(null);
   const [viewshedCalculating, setViewshedCalculating] =
     useState<boolean>(false);
+  const [cotDispatchStatus, setCotDispatchStatus] = useState<string | null>(
+    null,
+  );
+  const [cotDispatching, setCotDispatching] = useState<boolean>(false);
 
   const handleToggleTerrain3D = () => {
     setShowTerrain3D((prev) => {
@@ -316,6 +320,31 @@ export default function MapComponent({
       console.warn("Viewshed calculation failed:", err);
     } finally {
       setViewshedCalculating(false);
+    }
+  };
+
+  const handleBroadcastCoT = async (target: DetectionFeature) => {
+    setCotDispatching(true);
+    setCotDispatchStatus(null);
+    try {
+      const res = await authFetch(
+        `${apiUrl}/api/v1/cot/broadcast/${target.id}`,
+        {
+          method: "POST",
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setCotDispatchStatus(
+          `Dispatched (${data.mil_std_2525_type}) to ${data.target_host}:${data.target_port}`,
+        );
+      } else {
+        setCotDispatchStatus("Dispatch failed: Network error");
+      }
+    } catch {
+      setCotDispatchStatus("Dispatch failed: Network error");
+    } finally {
+      setCotDispatching(false);
     }
   };
 
@@ -1093,6 +1122,25 @@ export default function MapComponent({
                 </div>
               </div>
             )}
+
+          {/* Tactical Edge Cursor-on-Target (CoT) Broadcast to ATAK */}
+          <div className="pt-1">
+            <button
+              onClick={() => handleBroadcastCoT(selectedTarget)}
+              disabled={cotDispatching}
+              className="w-full py-1.5 px-2 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/20 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+            >
+              <Radio size={13} className="text-indigo-400" />
+              {cotDispatching
+                ? "Broadcasting CoT..."
+                : "Broadcast to ATAK (CoT)"}
+            </button>
+            {cotDispatchStatus && (
+              <div className="mt-1 text-[10px] font-mono text-indigo-400 bg-indigo-950/40 border border-indigo-800/60 rounded px-2 py-1">
+                {cotDispatchStatus}
+              </div>
+            )}
+          </div>
         </aside>
       )}
 

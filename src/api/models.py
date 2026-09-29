@@ -215,3 +215,18 @@ class VelocityResponse(BaseModel):
     total_area_sq_m: float
     mean_velocity_sq_m_per_day: float
     classes: List[VelocityClassMetrics]
+
+
+class CoTBroadcastResponse(BaseModel):
+    """Result of Cursor-on-Target (CoT) tactical edge dispatch."""
+
+    status: str
+    detection_id: str
+    uid: str
+    callsign: str
+    mil_std_2525_type: str
+    target_host: str
+    target_port: int
+    protocol: str
+    xml_payload: str
+    timestamp: str
