@@ -22,6 +22,7 @@ import {
   Sliders,
   Mountain,
   FileText,
+  TrendingUp,
 } from "lucide-react";
 
 import {
@@ -39,6 +40,7 @@ import { ReviewModal } from "./components/ReviewModal";
 import { SavedViewsBar } from "./components/SavedViewsBar";
 import { AdminSettingsModal } from "./components/AdminSettingsModal";
 import { SitrepModal } from "./components/SitrepModal";
+import { VelocityModal } from "./components/VelocityModal";
 
 // Suwalki Gap Strategic Surveillance Corridor Initial Viewport
 const INITIAL_VIEW_STATE = {
@@ -276,6 +278,8 @@ export default function MapComponent({
   const [isHotlistOpen, setIsHotlistOpen] = useState<boolean>(true);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
   const [isSitrepModalOpen, setIsSitrepModalOpen] = useState<boolean>(false);
+  const [isVelocityModalOpen, setIsVelocityModalOpen] =
+    useState<boolean>(false);
 
   // 3D Terrain & Viewshed Analytics State
   const [showTerrain3D, setShowTerrain3D] = useState<boolean>(false);
@@ -801,6 +805,13 @@ export default function MapComponent({
             </div>
             <div className="flex items-center gap-1">
               <button
+                onClick={() => setIsVelocityModalOpen(true)}
+                title="Construction Velocity & Pattern of Life (PoL) Analytics"
+                className="p-1 rounded text-cyan-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors"
+              >
+                <TrendingUp size={13} />
+              </button>
+              <button
                 onClick={() => setIsSitrepModalOpen(true)}
                 title="Daily AI Intelligence SITREPs (Ollama Air-Gapped)"
                 className="p-1 rounded text-emerald-400 hover:text-emerald-300 hover:bg-slate-800 transition-colors"
@@ -1207,6 +1218,14 @@ export default function MapComponent({
         onClose={() => setIsSitrepModalOpen(false)}
         currentUser={currentUser || null}
         apiUrl={apiUrl}
+      />
+
+      {/* Construction Velocity & Pattern of Life Modal */}
+      <VelocityModal
+        isOpen={isVelocityModalOpen}
+        onClose={() => setIsVelocityModalOpen(false)}
+        apiUrl={apiUrl}
+        initialZone={selectedZone}
       />
 
       {/* Bottom Temporal Timeline Scrubber */}

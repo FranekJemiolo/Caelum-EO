@@ -39,12 +39,14 @@ from src.api.models import (
     SitrepResponse,
     SystemConfigItem,
     SystemConfigUpdate,
+    VelocityResponse,
     ViewshedRequest,
     ViewshedResponse,
     ZoneSummary,
 )
 from src.api.service import triage_service
 from src.api.sitrep_generator import sitrep_generator
+from src.api.velocity import velocity_engine
 from src.ops import (
     HTTP_REQUEST_DURATION_SECONDS,
     HTTP_REQUESTS_TOTAL,
@@ -570,6 +572,19 @@ def compute_viewshed(
         observer_height=payload.observer_height,
         target_height=payload.target_height,
         max_radius_km=payload.max_radius_km,
+    )
+
+
+@app.get("/api/v1/analytics/velocity", response_model=VelocityResponse)
+def get_construction_velocity(
+    zone_id: Optional[str] = Query(None, description="Optional zone ID filter"),
+    months_lookback: int = Query(6, ge=1, le=24, description="Lookback window in months"),
+    current_user: User = Depends(get_current_user),
+) -> VelocityResponse:
+    """Calculate physical infrastructure construction velocity and Pattern of Life metrics."""
+    return velocity_engine.calculate_velocity_metrics(
+        zone_id=zone_id,
+        months_lookback=months_lookback,
     )
 
 
