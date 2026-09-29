@@ -32,7 +32,7 @@ Chart.register(
   CategoryScale,
   Tooltip,
   Legend,
-  Filler
+  Filler,
 );
 
 interface VelocityPoint {
@@ -94,9 +94,13 @@ export const VelocityModal: React.FC<VelocityModalProps> = ({
 }) => {
   const [data, setData] = useState<VelocityData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [selectedZone, setSelectedZone] = useState<string>(initialZone || "ALL");
+  const [selectedZone, setSelectedZone] = useState<string>(
+    initialZone || "ALL",
+  );
   const [lookbackMonths, setLookbackMonths] = useState<number>(6);
-  const [activeClasses, setActiveClasses] = useState<Record<string, boolean>>({});
+  const [activeClasses, setActiveClasses] = useState<Record<string, boolean>>(
+    {},
+  );
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
@@ -104,9 +108,12 @@ export const VelocityModal: React.FC<VelocityModalProps> = ({
   const fetchVelocity = async () => {
     setLoading(true);
     try {
-      const zoneParam = selectedZone === "ALL" ? "" : `&zone_id=${encodeURIComponent(selectedZone)}`;
+      const zoneParam =
+        selectedZone === "ALL"
+          ? ""
+          : `&zone_id=${encodeURIComponent(selectedZone)}`;
       const res = await authFetch(
-        `${apiUrl}/api/v1/analytics/velocity?months_lookback=${lookbackMonths}${zoneParam}`
+        `${apiUrl}/api/v1/analytics/velocity?months_lookback=${lookbackMonths}${zoneParam}`,
       );
       if (res.ok) {
         const json: VelocityData = await res.json();
@@ -262,7 +269,8 @@ export const VelocityModal: React.FC<VelocityModalProps> = ({
                 </span>
               </h2>
               <p className="text-xs text-slate-400 font-mono">
-                PostGIS temporal window derivatives of adversary infrastructure expansion
+                PostGIS temporal window derivatives of adversary infrastructure
+                expansion
               </p>
             </div>
           </div>
@@ -296,8 +304,12 @@ export const VelocityModal: React.FC<VelocityModalProps> = ({
               className="bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-cyan-500"
             >
               <option value="ALL">All Monitored Theaters</option>
-              <option value="suwalki_corridor">Suwalki Strategic Corridor</option>
-              <option value="kaliningrad_border">Kaliningrad Frontier Vector</option>
+              <option value="suwalki_corridor">
+                Suwalki Strategic Corridor
+              </option>
+              <option value="kaliningrad_border">
+                Kaliningrad Frontier Vector
+              </option>
               <option value="gotland_deep">Gotland Baltic Sector</option>
             </select>
           </div>
@@ -332,10 +344,13 @@ export const VelocityModal: React.FC<VelocityModalProps> = ({
                 <Building size={14} className="text-cyan-400" />
               </div>
               <div className="text-2xl font-bold font-mono text-cyan-300 mt-2">
-                {data ? `${Math.round(data.total_area_sq_m).toLocaleString()} m²` : "..."}
+                {data
+                  ? `${Math.round(data.total_area_sq_m).toLocaleString()} m²`
+                  : "..."}
               </div>
               <div className="text-[10px] font-mono text-slate-500 mt-1">
-                Cumulative footprint across {data?.classes.length || 0} facility classes
+                Cumulative footprint across {data?.classes.length || 0} facility
+                classes
               </div>
             </div>
 
@@ -345,10 +360,13 @@ export const VelocityModal: React.FC<VelocityModalProps> = ({
                 <Activity size={14} className="text-emerald-400" />
               </div>
               <div className="text-2xl font-bold font-mono text-emerald-300 mt-2">
-                {data ? `${data.mean_velocity_sq_m_per_day.toLocaleString()} m²/day` : "..."}
+                {data
+                  ? `${data.mean_velocity_sq_m_per_day.toLocaleString()} m²/day`
+                  : "..."}
               </div>
               <div className="text-[10px] font-mono text-slate-500 mt-1">
-                Rate of physical structure expansion over {lookbackMonths}-month window
+                Rate of physical structure expansion over {lookbackMonths}-month
+                window
               </div>
             </div>
 
@@ -359,9 +377,13 @@ export const VelocityModal: React.FC<VelocityModalProps> = ({
               </div>
               <div className="text-lg font-bold font-mono text-amber-300 mt-2 truncate">
                 {data?.classes && data.classes.length > 0
-                  ? [...data.classes].sort(
-                      (a, b) => b.expansion_rate_sq_m_per_day - a.expansion_rate_sq_m_per_day
-                    )[0]?.classification.replace(/_/g, " ")
+                  ? [...data.classes]
+                      .sort(
+                        (a, b) =>
+                          b.expansion_rate_sq_m_per_day -
+                          a.expansion_rate_sq_m_per_day,
+                      )[0]
+                      ?.classification.replace(/_/g, " ")
                   : "N/A"}
               </div>
               <div className="text-[10px] font-mono text-slate-500 mt-1">
@@ -372,7 +394,9 @@ export const VelocityModal: React.FC<VelocityModalProps> = ({
 
           {/* Interactive Class Toggles */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="text-xs font-mono text-slate-400 mr-2">Toggle Classes:</span>
+            <span className="text-xs font-mono text-slate-400 mr-2">
+              Toggle Classes:
+            </span>
             {data?.classes.map((c) => {
               const active = activeClasses[c.classification] !== false;
               const color = CLASS_COLORS[c.classification] || {

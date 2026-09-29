@@ -5,7 +5,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. Extend infrastructure_detections with 3D elevation and CoT tracking
-ALTER TABLE infrastructure_detections 
+ALTER TABLE infrastructure_detections
     ADD COLUMN IF NOT EXISTS elevation_msl DOUBLE PRECISION DEFAULT 165.0,
     ADD COLUMN IF NOT EXISTS elevation_origin VARCHAR(64) DEFAULT 'Copernicus-GLO-30',
     ADD COLUMN IF NOT EXISTS cot_broadcast_at TIMESTAMPTZ,

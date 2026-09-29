@@ -97,10 +97,14 @@ export const SitrepModal: React.FC<SitrepModalProps> = ({
         setSelectedSitrep(newReport);
         setEditedContent(newReport.sitrep_content);
         setIsEditing(false);
-        setStatusFeedback("New military SITREP generated successfully via local AI engine!");
+        setStatusFeedback(
+          "New military SITREP generated successfully via local AI engine!",
+        );
       }
     } catch (err: any) {
-      setStatusFeedback(`Generation error: ${err.message || "Failed calling local LLM"}`);
+      setStatusFeedback(
+        `Generation error: ${err.message || "Failed calling local LLM"}`,
+      );
     } finally {
       setGenerating(false);
     }
@@ -169,7 +173,8 @@ export const SitrepModal: React.FC<SitrepModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-mono">
-                Automated multi-temporal intelligence synthesis • Zero external network transmission
+                Automated multi-temporal intelligence synthesis • Zero external
+                network transmission
               </p>
             </div>
           </div>
@@ -220,7 +225,8 @@ export const SitrepModal: React.FC<SitrepModalProps> = ({
                 </div>
               ) : sitreps.length === 0 ? (
                 <div className="p-6 text-center text-xs font-mono text-slate-500">
-                  No SITREPs generated yet. Click "Generate SITREP" to draft a report.
+                  No SITREPs generated yet. Click "Generate SITREP" to draft a
+                  report.
                 </div>
               ) : (
                 sitreps.map((report) => (
@@ -346,7 +352,8 @@ export const SitrepModal: React.FC<SitrepModalProps> = ({
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500 font-mono text-xs">
                 <FileText size={48} className="text-slate-700 mb-3" />
-                Select a report from the archive or click "Generate SITREP" to create an automated brief.
+                Select a report from the archive or click "Generate SITREP" to
+                create an automated brief.
               </div>
             )}
           </main>
@@ -355,7 +362,10 @@ export const SitrepModal: React.FC<SitrepModalProps> = ({
         {/* Modal Footer */}
         <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between text-xs font-mono text-slate-500">
           <div>
-            Active Operator: <b className="text-slate-300">{currentUser?.username || "analyst"}</b>
+            Active Operator:{" "}
+            <b className="text-slate-300">
+              {currentUser?.username || "analyst"}
+            </b>
           </div>
           <button
             onClick={onClose}

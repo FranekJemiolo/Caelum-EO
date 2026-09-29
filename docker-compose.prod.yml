@@ -332,4 +332,3 @@ volumes:
     driver: local
   ollama_prod_data:
     driver: local
-
