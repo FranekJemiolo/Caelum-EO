@@ -214,3 +214,34 @@
   4. **Analyst Workflow Upgrades:** Built RFC 7946 GeoJSON and CSV export engine (`/api/v1/export`) with multi-select bulk actions in the Triage Drawer; implemented analyst comment threading (`detection_comments`) in the Review Modal; created immutable lifecycle audit timelines (`detection_audit_log`) in the Multi-Temporal Inspector; and introduced quick-access preset chips for saved views (`saved_filters`).
   5. **Air-Gapped Backup & Restore:** Authored `scripts/backup.sh` and `scripts/restore.sh` automating `pg_dump` of PostGIS database schemas and synchronization of MinIO `caelum-chips` and `caelum-vectors` into timestamped tarballs with SHA-256 manifest verification.
 - **Impact:** Achieves complete Version 3 enterprise maturity, empowering intelligence analysts with collaboration and briefing tools while providing IT administrators with self-contained, air-gapped observability and disaster recovery.
+
+---
+
+## [2026-09-29] - Phase 6 - Version 4: Predictive Intelligence, Tactical Edge & 3D Terrain
+
+- **Context:** Transition Project Caelum-EO from a static monitoring platform into an active intelligence and command system. GEOINT value diminishes exponentially if it cannot reach tactical units on the forward edge, if analysts spend hours manually formatting daily briefs, or if 2D satellite maps conceal critical topographic Line-of-Sight (LOS) advantages.
+- **Constraints:** 100% sovereign, local, bare-metal, and air-gapped. Strictly zero external cloud LLM APIs (no OpenAI, no Anthropic).
+
+### Technical Tradeoffs & Architectural Decisions:
+
+1. **Tactical Edge ATAK Integration & Cursor-on-Target (CoT) XML Protocol:**
+   - **Protocol Tradeoff (UDP vs. TCP vs. Multicast):** Implemented UDP datagram dispatch (`socket.SOCK_DGRAM`) with multicast support (`239.2.3.1:8087`) as the primary tactical broadcast mechanism, backed by configurable unicast and TCP modes. Tactical edge radio networks (e.g., Silvus StreamCaster, TrellisWare MANET) suffer high packet jitter and intermittent loss; TCP connection handshakes and head-of-line blocking cause unacceptable telemetry lag. UDP broadcast allows dismounted soldiers running ATAK on Android devices to passively ingest tactical target markers with zero handshake latency.
+   - **MIL-STD-2525 Symbol Mapping:** Mapped post-classification infrastructure categories directly to standardized MIL-STD-2525C/D 15-character symbol codes (`RADAR_DOME` $\rightarrow$ `a-h-G-U-C-R`, `SAM_SITE` $\rightarrow$ `a-h-G-U-C-M`, `RUNWAY_TAXIWAY` $\rightarrow$ `a-f-G-I-A`, `LOGISTICS_DEPOT` $\rightarrow$ `a-h-G-I-S`, `DEFENSE_REVETMENT` $\rightarrow$ `a-h-G-I-M`). Standardized symbol codes allow ATAK clients to immediately render native military symbology on tactical displays without custom client-side plugins.
+   - **Automated Verification Trigger:** Hooked CoT dispatch directly into the `TriageService.submit_review()` lifecycle. When an analyst verifies an anomaly ($P \ge 0.85$, `VERIFIED`), the system automatically compiles the CoT XML v2.0 event payload and transmits it to the TAK network, while recording `cot_broadcast_at` in PostGIS.
+
+2. **Automated Generative SITREPs via Local Air-Gapped Ollama LLM:**
+   - **Local Inference Architecture:** Added `ollama/ollama:latest` to `docker-compose.prod.yml` with GPU device passthrough (`capabilities: [gpu]`). Configured for lightweight instruction-tuned models (`llama3:8b-instruct` or `mistral:7b`), operating entirely within the air-gapped Docker network (`caelum-net-prod`) without public internet egress.
+   - **Prompt Engineering Doctrine:** Designed structured NATO J2 doctrine prompts. The `SITREPGenerator` aggregates all verified PostGIS detections across a sliding lookback window (default 24 hours), computes class distributions, coordinate bounds, and cumulative construction areas, and formats them into a strict prompt enforcing standard military briefing brevity, sector-by-sector disposition, Pattern of Life dynamics, and actionable commander recommendations.
+   - **Graceful Deterministic Fallback:** Implemented an analytical rule-based report synthesizer (`generate_analytical_fallback_sitrep`) that automatically generates a complete military brief if the Ollama service is unreachable or downloading weights, ensuring zero system downtime or pipeline crashes.
+   - **Analyst Workflow & PDF Export:** Built `SitrepModal` in React enabling intelligence officers to review AI-generated drafts, edit content directly in the UI, and print or export formal briefing documents to PDF.
+
+3. **3D Terrain & Viewshed Analytics (Copernicus DEM):**
+   - **Copernicus GLO-30 Ingestion:** Created `src/etl/dem_client.py` to ingest 30-meter Digital Elevation Model (DEM) data for monitored bounding boxes, storing them in MinIO (`caelum-dem`) as Cloud-Optimized GeoTIFFs (COGs) and Mapbox Terrain-RGB encoded tiles.
+   - **Viewshed Line-of-Sight (LOS) Calculation:** Implemented a radial raymarching viewshed engine (`src/analytics/viewshed.py`) that samples digital elevation profiles between observer radar domes and target terrain cells out to a configurable sensor range (e.g. 15 km), accounting for antenna elevation (+20m MSL), target altitude (+2m), terrain occlusion, and Earth curvature correction ($h_{corr} = d^2 / (2 R_e)$). Polygonized visible cells into standard GeoJSON using `rasterio.features.shapes`.
+   - **Deck.gl 3D TerrainLayer:** Integrated `@deck.gl/geo-layers` `TerrainLayer` into the WebGL map with Terrarium/Mapbox RGB elevation decoding. Added a 3D DEM toggle in the Tactical HUD that tilts the camera pitch from 0°/30° to 55° with bearing rotation, revealing topographic relief, mountain corridors, and radar occlusion zones.
+
+4. **Construction Velocity & Pattern of Life (PoL) Metrics:**
+   - **PostGIS SQL Window Functions:** Formulated temporal window queries (`src/api/velocity.py`) utilizing `SUM(area_sq_meters) OVER (PARTITION BY classification ORDER BY detection_timestamp)` to compute cumulative area trajectories, alongside `LAG(detection_timestamp)` and `LAG(area_sq_meters)` to calculate the discrete first derivative of construction velocity ($\Delta \text{area} / \Delta t$ in $\text{m}^2/\text{day}$).
+   - **Interactive Chart.js Time-Series Visualization:** Created `VelocityModal.tsx` in React with Chart.js, rendering multi-line expansion curves across 3, 6, and 12-month timelines with interactive class toggles, KPI summary cards, and zone filtering.
+
+- **Impact:** Completes Version 4 transformation of Caelum-EO into a full-spectrum Active Intelligence and Command platform, bridging satellite foundation model inference with tactical edge dismounted forces, 3D topographic situational awareness, and automated generative command reporting.

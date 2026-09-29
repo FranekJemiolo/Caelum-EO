@@ -73,8 +73,8 @@ The complete operational doctrine, threat modeling, and long-term capability roa
 - [x] **Two-Stage Tactical Target Discrimination**: High-precision oriented bounding box classification (`YOLOv8-OBB`) and zero-shot roofline perimeter polygon extraction (`GeoSAM`).
 - [x] **Sub-10ms WebGL Vector & Dynamic Raster Serving**: Native PostGIS Mapbox Vector Tile streaming (Martin MVT) for 100,000+ polygons at 60fps, paired with TiTiler dynamic COG window streaming.
 - [x] **Closed-Loop Human-in-the-Loop Active Learning**: Instant triage hotkeys, immutable audit logging (`review_audit_log`), and automated LoRA fine-tuning queues.
-- [x] **Defensive SIEM Alerting & Automated Hygiene**: Automated webhook dispatch for high-priority detections ($P > 0.85$) and automated raw raster retention pruning (7-day rolling window).
 - [x] **Version Two Scaled Architecture**: Detailed blueprint for multi-modal SAR+optical cross-attention, Citus PostGIS sharding ($50\text{M}+$ polygons), and forward edge NVIDIA Jetson AGX deployment (see [docs/VERSION_TWO_SPEC.md](docs/VERSION_TWO_SPEC.md)).
+- [x] **Version 4 Active Intelligence & Command Platform**: Automated generative military SITREPs via local Ollama LLMs, 3D Copernicus DEM terrain & radar viewshed analysis, real-time ATAK Cursor-on-Target (CoT) broadcast, and construction velocity Pattern of Life metrics.
 
 ---
 
@@ -321,6 +321,98 @@ Version 3 transforms Project Caelum-EO into a daily driver for operational intel
 
 - Modify active STAC target geofences, ML confidence thresholds (e.g., adjusting from `0.60` to `0.85`), and webhook alert URLs in real time.
 - Python ETL and vectorization workers dynamically fetch these settings from the `system_configurations` table on every polling cycle, eliminating `.env` edits and container restarts.
+
+---
+
+## ⚡ Version 4 Capabilities: Tactical Edge, 3D Terrain & Generative AI
+
+Version 4 elevates Caelum-EO into an active tactical intelligence and command platform:
+
+### 1. Tactical Edge ATAK Integration (Cursor-on-Target Protocol)
+
+High-priority GEOINT is pushed directly to dismounted infantry and tactical command posts running **Android Team Awareness Kit (ATAK)**, **WinTAK**, or **FalconView**:
+
+- **Cursor-on-Target (CoT) XML Protocol v2.0:** Serializes PostGIS detections into standard CoT `<event>` messages detailing latitude, longitude, height above ellipsoid (`hae`), circular/linear error bounds (`ce`, `le`), and tactical metadata.
+- **Automated Verification Broadcast:** When an analyst marks a detection as `VERIFIED` ($P \ge 0.85$), the system automatically packages and transmits the target marker over UDP/TCP to tactical TAK networks.
+- **Manual Retransmit:** Analysts can click "Broadcast to ATAK (CoT)" directly inside the Target Dossier drawer in the WebGL UI.
+- **Standardized MIL-STD-2525 Symbology:** PostGIS classifications map natively to Department of Defense MIL-STD-2525C/D 15-character symbol codes:
+
+| Infrastructure Classification | MIL-STD-2525 Code | ATAK Tactical Symbol Description                         |
+| :---------------------------- | :---------------- | :------------------------------------------------------- |
+| `RADAR_DOME`                  | `a-h-G-U-C-R`     | Ground Equipment - Sensor / Radar Installation           |
+| `SAM_SITE`                    | `a-h-G-U-C-M`     | Ground Equipment - Surface-to-Air Missile (SAM)          |
+| `RUNWAY_TAXIWAY`              | `a-f-G-I-A`       | Ground Installation - Aviation / Airfield Runway         |
+| `LOGISTICS_DEPOT`             | `a-h-G-I-S`       | Ground Installation - Supply / Logistics Depot           |
+| `DEFENSE_REVETMENT`           | `a-h-G-I-M`       | Ground Installation - Military Fortification / Revetment |
+| `INDUSTRIAL_BUILDING`         | `a-h-G-I-B`       | Ground Installation - Production / Industrial Facility   |
+
+#### 📡 ATAK Tactical Network Configuration
+
+To receive Caelum-EO target markers on an ATAK or WinTAK device:
+
+1. **UDP Multicast (Recommended for Tactical Mesh Radios):**
+   - In ATAK, navigate to **Settings** $\rightarrow$ **Network Preferences** $\rightarrow$ **Manage Inputs**.
+   - Create a new input:
+     - **Protocol:** `UDP`
+     - **Multicast Group:** `239.2.3.1` (or local broadcast `255.255.255.255`)
+     - **Port:** `8087`
+2. **Direct TAK Server Dispatch:**
+   - Configure environment variables on Caelum-EO backend:
+     ```bash
+     export TAK_SERVER_HOST="192.168.1.100"  # IP of TAK Server or ATAK handset
+     export TAK_SERVER_PORT="8087"           # Standard CoT port
+     export TAK_PROTO="udp"                  # "udp" or "tcp"
+     ```
+3. **Verify Payload in CLI:**
+   ```bash
+   uv run python -m src.api.cot_dispatcher --class-name RADAR_DOME --lon 23.23 --lat 54.14
+   ```
+
+---
+
+### 2. Automated Generative SITREPs (Local Air-Gapped Ollama LLM)
+
+Replaces manual daily intelligence briefing assembly with structured NATO-doctrine Situation Reports produced by an on-premises local Large Language Model:
+
+- **100% Air-Gapped Local Inference:** Powered by `ollama/ollama:latest` integrated into `docker-compose.prod.yml` with direct GPU device passthrough. Zero external cloud API calls.
+- **Automated Lookback Aggregation:** Aggregates all `VERIFIED` detections in PostGIS over the past 24 to 72 hours, compiling class breakdowns, coordinate centroids, and surface expansion footprints.
+- **NATO J2 Doctrine Formatting:** Enforces strict briefing structures covering Threat Level, Sector Disposition, Pattern of Life Dynamics, Collection Gaps, and Commander's Recommendations.
+- **Deterministic Analytical Fallback:** If Ollama is offline or downloading model weights, an integrated analytical engine deterministically synthesizes the report to guarantee zero pipeline downtime.
+- **Analyst Review & PDF Export:** Integrated "Daily SITREPs" dashboard in React (`SitrepModal`) allows operators to review, edit, copy, and print/export briefs to PDF.
+
+#### 🖥️ Local LLM Hardware Requirements & Model Recommendations
+
+| Model                 | Quantization    | Min VRAM | Recommended GPU                       | Inference Speed |
+| :-------------------- | :-------------- | :------- | :------------------------------------ | :-------------- |
+| `llama3:8b-instruct`  | Q4_K_M (4.7 GB) | 8 GB     | RTX 3070 / 4060 / Apple M2 (16GB)     | ~45 tok/sec     |
+| `mistral:7b-instruct` | Q4_K_M (4.1 GB) | 8 GB     | RTX 3070 / 4060 / Apple M1 (16GB)     | ~52 tok/sec     |
+| `llama3:8b-instruct`  | FP16 (16.0 GB)  | 20 GB    | RTX 4090 / A100 / Apple M3 Max (36GB) | ~90 tok/sec     |
+
+**Pre-pulling LLM Weights in Air-Gapped Environments:**
+
+```bash
+# Pull model while network connected before deployment to air-gapped facility:
+docker compose -f docker-compose.prod.yml exec ollama ollama pull llama3:8b-instruct
+```
+
+---
+
+### 3. 3D Digital Elevation Models (DEM) & Radar Viewshed Analytics
+
+A radar dome on a peak threatens high-altitude corridors; one in a ravine has severe terrain shadowing. Caelum-EO brings Z-axis intelligence to analysts:
+
+- **Copernicus GLO-30 Ingestion:** Ingests 30-meter Digital Elevation Model (DEM) data, storing them in MinIO as Cloud-Optimized GeoTIFFs (COGs) and Mapbox Terrain-RGB encoded tiles.
+- **Deck.gl 3D TerrainLayer:** The React map features an interactive 3D terrain toggle that pitches the camera to 55° with bearing rotation, revealing topographic relief, valleys, and mountain barriers beneath vector overlays.
+- **Line-of-Sight (LOS) Viewshed Engine:** Radial raymarching viewshed calculator (`POST /api/v1/analytics/viewshed`) computes the exact line-of-sight coverage polygon for any radar installation, taking into account antenna height (+20m MSL), target clearance (+2m), terrain occlusion, and Earth curvature. Returns visible coverage as an emerald fan polygon overlay on the 3D map.
+
+---
+
+### 4. Construction Velocity & Pattern of Life (PoL) Analytics
+
+Commanders require quantitative metrics on how quickly an adversary is expanding their physical footprint:
+
+- **SQL Window Derivatives:** Utilizes PostGIS window functions (`SUM() OVER ()`, `LAG()`) to compute the discrete derivative of area expansion ($\Delta \text{area} / \Delta t$ in $\text{m}^2/\text{day}$).
+- **Pattern of Life (PoL) Dashboard:** Interactive Chart.js modal in React (`VelocityModal`) displaying time-series expansion curves across 3, 6, and 12-month observation windows, complete with individual class toggles and key performance indicators.
 
 ---
 
