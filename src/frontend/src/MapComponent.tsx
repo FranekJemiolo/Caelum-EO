@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import DeckGL from "@deck.gl/react";
 import { GeoJsonLayer } from "@deck.gl/layers";
-import { MVTLayer } from "@deck.gl/geo-layers";
+import { MVTLayer, TerrainLayer } from "@deck.gl/geo-layers";
 import Map from "react-map-gl/maplibre";
 import {
   Play,
@@ -20,6 +20,7 @@ import {
   Share2,
   Database,
   Sliders,
+  Mountain,
 } from "lucide-react";
 
 import {
@@ -272,6 +273,48 @@ export default function MapComponent({
   );
   const [isHotlistOpen, setIsHotlistOpen] = useState<boolean>(true);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
+
+  // 3D Terrain & Viewshed Analytics State
+  const [showTerrain3D, setShowTerrain3D] = useState<boolean>(false);
+  const [viewshedFeature, setViewshedFeature] = useState<any | null>(null);
+  const [viewshedCalculating, setViewshedCalculating] =
+    useState<boolean>(false);
+
+  const handleToggleTerrain3D = () => {
+    setShowTerrain3D((prev) => {
+      const next = !prev;
+      setViewState((v) => ({
+        ...v,
+        pitch: next ? 55 : 30,
+        bearing: next ? -25 : -15,
+      }));
+      return next;
+    });
+  };
+
+  const handleCalculateViewshed = async (target: DetectionFeature) => {
+    setViewshedCalculating(true);
+    try {
+      const res = await authFetch(`${apiUrl}/api/v1/analytics/viewshed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          detection_id: target.id,
+          observer_height: 15.0,
+          target_height: 2.0,
+          max_radius_km: 12.0,
+        }),
+      });
+      if (res.ok) {
+        const feat = await res.json();
+        setViewshedFeature(feat);
+      }
+    } catch (err) {
+      console.warn("Viewshed calculation failed:", err);
+    } finally {
+      setViewshedCalculating(false);
+    }
+  };
 
   // Advanced Filtering & Saved Views State
   const [minConfidence, setMinConfidence] = useState<number>(0);
@@ -577,6 +620,43 @@ export default function MapComponent({
       );
     }
 
+    if (viewshedFeature) {
+      list.push(
+        new GeoJsonLayer({
+          id: "radar-viewshed-los-layer",
+          data: viewshedFeature,
+          pickable: false,
+          stroked: true,
+          filled: true,
+          getFillColor: [16, 185, 129, 90],
+          getLineColor: [52, 211, 153, 230],
+          getLineWidth: 2,
+          lineWidthMinPixels: 2,
+        }),
+      );
+    }
+
+    if (showTerrain3D) {
+      list.push(
+        new TerrainLayer({
+          id: "dem-terrain-3d-layer",
+          minZoom: 0,
+          maxZoom: 23,
+          elevationDecoder: {
+            rScaler: 6553.6,
+            gScaler: 25.6,
+            bScaler: 0.1,
+            offset: -10000,
+          },
+          elevationData:
+            "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+          texture: null,
+          wireframe: true,
+          color: [60, 80, 105, 180],
+        }),
+      );
+    }
+
     return list;
   }, [
     filteredFeatures,
@@ -587,6 +667,8 @@ export default function MapComponent({
     martinAvailable,
     tileServerUrl,
     handleSelectTarget,
+    viewshedFeature,
+    showTerrain3D,
   ]);
 
   const dateLabel = new Date(scrubberTime).toISOString().slice(0, 10);
@@ -733,6 +815,18 @@ export default function MapComponent({
             >
               <Cpu size={13} />
               {useMVT ? "MVT Tiles" : "GeoJSON"}
+            </button>
+            <button
+              onClick={handleToggleTerrain3D}
+              title="Toggle 3D Digital Elevation Model (DEM) terrain and pitch camera"
+              className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors border ${
+                showTerrain3D
+                  ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]"
+                  : "bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200"
+              }`}
+            >
+              <Mountain size={13} />
+              3D DEM
             </button>
           </div>
           {useMVT && (
@@ -947,6 +1041,48 @@ export default function MapComponent({
               Review
             </button>
           </div>
+
+          {/* Viewshed Line-of-Sight Calculation Trigger */}
+          <div className="pt-1">
+            <button
+              onClick={() => handleCalculateViewshed(selectedTarget)}
+              disabled={viewshedCalculating}
+              className="w-full py-1.5 px-2 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+            >
+              <Activity size={13} className="text-emerald-400" />
+              {viewshedCalculating
+                ? "Calculating Viewshed..."
+                : "Calculate Radar Viewshed (LOS)"}
+            </button>
+          </div>
+
+          {viewshedFeature &&
+            viewshedFeature.properties?.detection_id === selectedTarget.id && (
+              <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-800/80 text-[11px] font-mono text-emerald-300 space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold">Radar LOS Coverage:</span>
+                  <button
+                    onClick={() => setViewshedFeature(null)}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                <div>
+                  Area:{" "}
+                  <b>{viewshedFeature.properties.visible_area_sq_km} km²</b> (
+                  {viewshedFeature.properties.coverage_percentage}% of{" "}
+                  {viewshedFeature.properties.sensor_max_range_km}km radius)
+                </div>
+                <div>
+                  Elevation:{" "}
+                  <b>
+                    {viewshedFeature.properties.observer_elevation_msl}m MSL
+                  </b>{" "}
+                  (+{viewshedFeature.properties.antenna_height_m}m antenna)
+                </div>
+              </div>
+            )}
         </aside>
       )}
 

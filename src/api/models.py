@@ -145,3 +145,73 @@ class ExportRequest(BaseModel):
     detection_ids: Optional[List[str]] = None
     zone_id: Optional[str] = None
     format: str = Field("geojson", pattern="^(geojson|csv)$")
+
+
+class ViewshedRequest(BaseModel):
+    """Request payload for radar viewshed and line-of-sight calculations."""
+
+    detection_id: Optional[str] = None
+    lon: Optional[float] = None
+    lat: Optional[float] = None
+    observer_height: float = 15.0
+    target_height: float = 2.0
+    max_radius_km: float = 12.0
+
+
+class ViewshedResponse(BaseModel):
+    """GeoJSON Feature response containing viewshed polygon."""
+
+    type: str = "Feature"
+    geometry: Dict[str, Any]
+    properties: Dict[str, Any]
+
+
+class SitrepGenerateRequest(BaseModel):
+    """Parameters for generating a local LLM SITREP."""
+
+    hours_lookback: int = Field(24, ge=1, le=720)
+    model: str = "llama3:8b-instruct"
+    title: Optional[str] = None
+    zone_id: Optional[str] = None
+
+
+class SitrepResponse(BaseModel):
+    """Generated daily military SITREP brief."""
+
+    id: str
+    title: str
+    time_window_start: str
+    time_window_end: str
+    model_name: str
+    sitrep_content: str
+    target_count: int
+    high_priority_count: int
+    status: str
+    created_at: str
+
+
+class VelocityPoint(BaseModel):
+    """Historical area footprint data point for a class."""
+
+    timestamp: str
+    cumulative_area_sq_m: float
+    expansion_rate_sq_m_per_day: float
+
+
+class VelocityClassMetrics(BaseModel):
+    """Construction velocity metrics for a specific infrastructure class."""
+
+    classification: str
+    current_area_sq_m: float
+    expansion_rate_sq_m_per_day: float
+    total_detections: int
+    timeline: List[VelocityPoint]
+
+
+class VelocityResponse(BaseModel):
+    """Area construction velocity and Pattern of Life analytics."""
+
+    zone_id: Optional[str] = None
+    total_area_sq_m: float
+    mean_velocity_sq_m_per_day: float
+    classes: List[VelocityClassMetrics]

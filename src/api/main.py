@@ -35,6 +35,8 @@ from src.api.models import (
     SavedFilterResponse,
     SystemConfigItem,
     SystemConfigUpdate,
+    ViewshedRequest,
+    ViewshedResponse,
     ZoneSummary,
 )
 from src.api.service import triage_service
@@ -547,6 +549,23 @@ def get_dead_letter_queue_messages(
 ) -> List[Dict[str, Any]]:
     """Retrieve captured Dead Letter Queue failure events."""
     return dlq_manager.get_dlq_messages(limit=limit)
+
+
+# --- 7. Version 4: 3D Terrain Viewshed Analytics ---
+@app.post("/api/v1/analytics/viewshed", response_model=ViewshedResponse)
+def compute_viewshed(
+    payload: ViewshedRequest,
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Calculate radar line-of-sight viewshed over 3D Digital Elevation Model (DEM)."""
+    return triage_service.calculate_viewshed(
+        detection_id=payload.detection_id,
+        lon=payload.lon,
+        lat=payload.lat,
+        observer_height=payload.observer_height,
+        target_height=payload.target_height,
+        max_radius_km=payload.max_radius_km,
+    )
 
 
 if __name__ == "__main__":

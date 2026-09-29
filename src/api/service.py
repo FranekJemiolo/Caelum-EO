@@ -1273,5 +1273,83 @@ class TriageService:
             "caelum_detections_export.geojson",
         )
 
+    # =========================================================================
+    # Version 4: 3D Terrain Viewshed & Line-of-Sight Analytics
+    # =========================================================================
+
+    def calculate_viewshed(
+        self,
+        detection_id: Optional[str] = None,
+        lon: Optional[float] = None,
+        lat: Optional[float] = None,
+        observer_height: float = 15.0,
+        target_height: float = 2.0,
+        max_radius_km: float = 12.0,
+    ) -> Dict[str, Any]:
+        """Calculate radar line-of-sight viewshed over 3D Digital Elevation Model (DEM)."""
+        from shapely.geometry import shape
+
+        from src.analytics.viewshed import calculate_radar_viewshed
+
+        obs_lon = lon
+        obs_lat = lat
+
+        if detection_id:
+            # Query detection geometry
+            det = self.get_detection_by_id(detection_id)
+            if det and "geometry" in det:
+                geom = shape(det["geometry"])
+                centroid = geom.centroid
+                obs_lon = float(centroid.x)
+                obs_lat = float(centroid.y)
+
+        if obs_lon is None or obs_lat is None:
+            # Default to Suwalki Corridor strategic center
+            obs_lon = 23.15
+            obs_lat = 54.12
+
+        viewshed_feat = calculate_radar_viewshed(
+            lon=obs_lon,
+            lat=obs_lat,
+            observer_height=observer_height,
+            target_height=target_height,
+            max_radius_km=max_radius_km,
+        )
+
+        if detection_id:
+            viewshed_feat["properties"]["detection_id"] = detection_id
+
+        # Cache in viewshed_calculations table if live connection exists
+        conn = self.get_connection()
+        if conn and detection_id:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO viewshed_calculations (
+                            detection_id, observer_lon, observer_lat, observer_elevation_msl,
+                            antenna_height_m, radius_km, geometry, visible_area_sq_km, coverage_percentage
+                        ) VALUES (
+                            %s::uuid, %s, %s, %s, %s, %s,
+                            ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326), %s, %s
+                        );
+                        """,
+                        (
+                            detection_id,
+                            obs_lon,
+                            obs_lat,
+                            viewshed_feat["properties"].get("observer_elevation_msl", 165.0),
+                            observer_height,
+                            max_radius_km,
+                            json.dumps(viewshed_feat["geometry"]),
+                            viewshed_feat["properties"].get("visible_area_sq_km", 0.0),
+                            viewshed_feat["properties"].get("coverage_percentage", 0.0),
+                        ),
+                    )
+            except Exception as exc:
+                logger.warning("Failed caching viewshed calculation in PostGIS", error=str(exc))
+
+        return viewshed_feat
+
 
 triage_service = TriageService()
