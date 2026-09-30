@@ -137,7 +137,7 @@ function generateRadarViewshedPolygon(centerLon: number, centerLat: number) {
  */
 export async function handleDemoApiRequest(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<Response> {
   const base = getBaseUrl();
   const method = (options.method || "GET").toUpperCase();
@@ -238,7 +238,8 @@ export async function handleDemoApiRequest(
           timestamp: "2026-09-14T08:00:00Z",
           analyst: "system_prithvi_v2",
           action: "AUTO_DETECTED",
-          notes: "Confidence score: 0.94. Identified in Sentinel-2 multi-spectral difference pass.",
+          notes:
+            "Confidence score: 0.94. Identified in Sentinel-2 multi-spectral difference pass.",
         },
       ];
       const localAudits = getLocalAudits(detId);
@@ -256,7 +257,8 @@ export async function handleDemoApiRequest(
       try {
         const res = await fetch(`${base}demo-data/analytics.json`);
         const analytics = await res.json();
-        const baseComments = (analytics.comments && analytics.comments[detId]) || [];
+        const baseComments =
+          (analytics.comments && analytics.comments[detId]) || [];
         const localComments = getLocalComments(detId);
         return jsonResponse([...baseComments, ...localComments]);
       } catch {
@@ -423,7 +425,8 @@ export async function handleDemoApiRequest(
       classification: "TOP SECRET // NOFORN // AIR-GAPPED GEOINT",
       author: "Autonomous SITREP Generator (Local DeepSeek-R1-14B)",
       created_at: new Date().toISOString(),
-      executive_summary: "Dynamic intelligence synthesis in demo mode confirms active logistical build-out across Sector ALPHA and BRAVO. Supply chain critical nodes verified.",
+      executive_summary:
+        "Dynamic intelligence synthesis in demo mode confirms active logistical build-out across Sector ALPHA and BRAVO. Supply chain critical nodes verified.",
       key_findings: [
         "AN/MPQ-64 Sentinel radar site fully active on ridge +242m ASL.",
         "Tactical airstrip expansion asphalt curing completed.",

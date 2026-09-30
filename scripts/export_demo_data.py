@@ -13,13 +13,10 @@ Project Caelum-EO (github.com/FranekJemiolo/Caelum-EO)
 from __future__ import annotations
 
 import json
-import math
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -433,23 +430,79 @@ def generate_curated_analytics(geojson: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     # Velocity time-series
-    months = [
-        "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03",
-        "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"
-    ]
     velocity_time_series = [
-        {"month": "2025-10", "area_built_sqm": 450, "new_detections_count": 0, "mean_velocity": 15.0},
-        {"month": "2025-11", "area_built_sqm": 800, "new_detections_count": 0, "mean_velocity": 26.6},
-        {"month": "2025-12", "area_built_sqm": 620, "new_detections_count": 0, "mean_velocity": 20.0},
-        {"month": "2026-01", "area_built_sqm": 1200, "new_detections_count": 1, "mean_velocity": 38.7},
-        {"month": "2026-02", "area_built_sqm": 1950, "new_detections_count": 1, "mean_velocity": 69.6},
-        {"month": "2026-03", "area_built_sqm": 3100, "new_detections_count": 1, "mean_velocity": 100.0},
-        {"month": "2026-04", "area_built_sqm": 4800, "new_detections_count": 2, "mean_velocity": 160.0},
-        {"month": "2026-05", "area_built_sqm": 7200, "new_detections_count": 3, "mean_velocity": 232.2},
-        {"month": "2026-06", "area_built_sqm": 9400, "new_detections_count": 4, "mean_velocity": 313.3},
-        {"month": "2026-07", "area_built_sqm": 12800, "new_detections_count": 5, "mean_velocity": 412.9},
-        {"month": "2026-08", "area_built_sqm": 16400, "new_detections_count": 6, "mean_velocity": 529.0},
-        {"month": "2026-09", "area_built_sqm": 21850, "new_detections_count": 8, "mean_velocity": 728.3},
+        {
+            "month": "2025-10",
+            "area_built_sqm": 450,
+            "new_detections_count": 0,
+            "mean_velocity": 15.0,
+        },
+        {
+            "month": "2025-11",
+            "area_built_sqm": 800,
+            "new_detections_count": 0,
+            "mean_velocity": 26.6,
+        },
+        {
+            "month": "2025-12",
+            "area_built_sqm": 620,
+            "new_detections_count": 0,
+            "mean_velocity": 20.0,
+        },
+        {
+            "month": "2026-01",
+            "area_built_sqm": 1200,
+            "new_detections_count": 1,
+            "mean_velocity": 38.7,
+        },
+        {
+            "month": "2026-02",
+            "area_built_sqm": 1950,
+            "new_detections_count": 1,
+            "mean_velocity": 69.6,
+        },
+        {
+            "month": "2026-03",
+            "area_built_sqm": 3100,
+            "new_detections_count": 1,
+            "mean_velocity": 100.0,
+        },
+        {
+            "month": "2026-04",
+            "area_built_sqm": 4800,
+            "new_detections_count": 2,
+            "mean_velocity": 160.0,
+        },
+        {
+            "month": "2026-05",
+            "area_built_sqm": 7200,
+            "new_detections_count": 3,
+            "mean_velocity": 232.2,
+        },
+        {
+            "month": "2026-06",
+            "area_built_sqm": 9400,
+            "new_detections_count": 4,
+            "mean_velocity": 313.3,
+        },
+        {
+            "month": "2026-07",
+            "area_built_sqm": 12800,
+            "new_detections_count": 5,
+            "mean_velocity": 412.9,
+        },
+        {
+            "month": "2026-08",
+            "area_built_sqm": 16400,
+            "new_detections_count": 6,
+            "mean_velocity": 529.0,
+        },
+        {
+            "month": "2026-09",
+            "area_built_sqm": 21850,
+            "new_detections_count": 8,
+            "mean_velocity": 728.3,
+        },
     ]
 
     zones_summary = [
@@ -704,12 +757,25 @@ def generate_synthetic_image_chips() -> None:
     # Anomaly 2: Hardened Phased-Array Radar Radome Facility
     # Security fence / cleared clearing
     radar_center = (320, 360)
-    draw_t1.ellipse([radar_center[0] - 65, radar_center[1] - 65, radar_center[0] + 65, radar_center[1] + 65], fill=(85, 92, 78), outline=(130, 140, 120), width=2)
+    draw_t1.ellipse(
+        [radar_center[0] - 65, radar_center[1] - 65, radar_center[0] + 65, radar_center[1] + 65],
+        fill=(85, 92, 78),
+        outline=(130, 140, 120),
+        width=2,
+    )
     # Octagonal concrete pad
     draw_t1.regular_polygon((radar_center, 44), 8, fill=(115, 122, 130), outline=(160, 170, 180))
     # Bright white geodesic radome sphere with shadow
-    draw_t1.ellipse([radar_center[0] - 22, radar_center[1] - 22, radar_center[0] + 22, radar_center[1] + 22], fill=(235, 240, 248), outline=(180, 190, 205), width=2)
-    draw_t1.ellipse([radar_center[0] - 14, radar_center[1] - 14, radar_center[0] + 10, radar_center[1] + 10], fill=(255, 255, 255))
+    draw_t1.ellipse(
+        [radar_center[0] - 22, radar_center[1] - 22, radar_center[0] + 22, radar_center[1] + 22],
+        fill=(235, 240, 248),
+        outline=(180, 190, 205),
+        width=2,
+    )
+    draw_t1.ellipse(
+        [radar_center[0] - 14, radar_center[1] - 14, radar_center[0] + 10, radar_center[1] + 10],
+        fill=(255, 255, 255),
+    )
 
     # Anomaly 3: Logistics Depot Revetments / Storage Bunkers
     draw_t1.rectangle([(70, 330), (160, 410)], fill=(75, 82, 70), outline=(110, 120, 105))
@@ -723,8 +789,15 @@ def generate_synthetic_image_chips() -> None:
     # Amber/Cyan glowing anomaly zones
     draw_mask.rectangle(runway_box, fill=(239, 68, 68, 160), outline=(248, 113, 113, 240), width=3)
     draw_mask.polygon([(240, 140), (330, 140), (330, 200), (240, 200)], fill=(245, 158, 11, 150))
-    draw_mask.ellipse([radar_center[0] - 50, radar_center[1] - 50, radar_center[0] + 50, radar_center[1] + 50], fill=(59, 130, 246, 170), outline=(96, 165, 250, 255), width=3)
-    draw_mask.rectangle([(70, 330), (160, 410)], fill=(16, 185, 129, 150), outline=(52, 211, 153, 230), width=2)
+    draw_mask.ellipse(
+        [radar_center[0] - 50, radar_center[1] - 50, radar_center[0] + 50, radar_center[1] + 50],
+        fill=(59, 130, 246, 170),
+        outline=(96, 165, 250, 255),
+        width=3,
+    )
+    draw_mask.rectangle(
+        [(70, 330), (160, 410)], fill=(16, 185, 129, 150), outline=(52, 211, 153, 230), width=2
+    )
 
     # Save compressed WebP images
     t0_img.save(IMAGERY_DIR / "t0.webp", format="WEBP", quality=82)
@@ -750,7 +823,9 @@ def main() -> None:
     geojson_path = DEMO_DATA_DIR / "detections.geojson"
     with open(geojson_path, "w", encoding="utf-8") as f:
         json.dump(detections_geojson, f, indent=2)
-    print(f"Exported detections GeoJSON ({len(detections_geojson['features'])} features): {geojson_path}")
+    print(
+        f"Exported detections GeoJSON ({len(detections_geojson['features'])} features): {geojson_path}"
+    )
 
     # 2. Analytics JSON
     analytics_data = generate_curated_analytics(detections_geojson)
