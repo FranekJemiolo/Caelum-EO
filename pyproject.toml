@@ -30,6 +30,8 @@ dependencies = [
     "numpy>=2.0.0",
     "scipy>=1.15.0",
     "python-dateutil>=2.9.0",
+    # Network Graph & RL Analytics
+    "networkx>=3.4.0",
     # Data / Messaging
     "kafka-python>=2.0.2",
     "psycopg2-binary>=2.9.10",

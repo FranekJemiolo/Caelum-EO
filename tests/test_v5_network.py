@@ -49,10 +49,18 @@ def sample_nodes() -> list[InfraNode]:
 @pytest.fixture
 def sample_edges() -> list[TelemetryEdge]:
     return [
-        TelemetryEdge("node-A", "node-B", "AIS", flow_count=4, mean_dark_threat=0.75, distance_km=12.0),
-        TelemetryEdge("node-B", "node-C", "AIS", flow_count=2, mean_dark_threat=0.55, distance_km=22.0),
-        TelemetryEdge("node-A", "node-D", "ADSB", flow_count=1, mean_dark_threat=0.65, distance_km=17.0),
-        TelemetryEdge("node-C", "node-D", "AIS", flow_count=3, mean_dark_threat=0.50, distance_km=30.0),
+        TelemetryEdge(
+            "node-A", "node-B", "AIS", flow_count=4, mean_dark_threat=0.75, distance_km=12.0
+        ),
+        TelemetryEdge(
+            "node-B", "node-C", "AIS", flow_count=2, mean_dark_threat=0.55, distance_km=22.0
+        ),
+        TelemetryEdge(
+            "node-A", "node-D", "ADSB", flow_count=1, mean_dark_threat=0.65, distance_km=17.0
+        ),
+        TelemetryEdge(
+            "node-C", "node-D", "AIS", flow_count=3, mean_dark_threat=0.50, distance_km=30.0
+        ),
     ]
 
 
@@ -331,3 +339,178 @@ def test_network_snapshots_latest_success(auth_headers):
     assert data["node_count"] == 4
     assert "node-A" in data["critical_node_ids"]
     assert data["rl_episode_rewards"] == [0.1, 0.3, 0.6]
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: Graph building, snapshot persistence & RL engine
+# ---------------------------------------------------------------------------
+
+
+def test_network_graph_build_with_mock_db():
+    from unittest.mock import MagicMock
+
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+    node_rows = [
+        {
+            "node_id": "node-1",
+            "classification": "RADAR_DOME",
+            "lon": 23.1,
+            "lat": 54.1,
+            "priority_score": 0.9,
+            "area_sq_m": 100.0,
+            "zone_id": "Z1",
+            "dark_event_count": 2,
+            "threat_score": 0.8,
+        },
+        {
+            "node_id": "node-2",
+            "classification": "LOGISTICS_DEPOT",
+            "lon": 23.2,
+            "lat": 54.2,
+            "priority_score": 0.7,
+            "area_sq_m": 200.0,
+            "zone_id": "Z1",
+            "dark_event_count": 1,
+            "threat_score": 0.5,
+        },
+    ]
+    edge_rows = [
+        {
+            "source_id": "node-1",
+            "target_id": "node-2",
+            "event_type": "AIS",
+            "flow_count": 3,
+            "mean_dark_threat": 0.7,
+            "distance_km": 15.0,
+        }
+    ]
+
+    mock_cur.fetchall.side_effect = [node_rows, edge_rows]
+
+    g = LogisticsNetworkGraph(mock_conn)
+    g.build(mock_conn)
+    assert g.graph is not None
+    assert g.graph.number_of_nodes() == 2
+    assert g.graph.number_of_edges() == 1
+
+
+def test_network_graph_build_db_error():
+    from unittest.mock import MagicMock
+
+    mock_conn = MagicMock()
+    mock_conn.cursor.side_effect = RuntimeError("DB connection failed")
+    g = LogisticsNetworkGraph(mock_conn)
+    g.build(mock_conn)
+    assert g.graph is not None
+    assert g.graph.number_of_nodes() == 0
+
+
+def test_save_snapshot_direct():
+    from unittest.mock import MagicMock
+
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+    mock_cur.fetchone.return_value = ("snap-uuid-123",)
+
+    g = LogisticsNetworkGraph(mock_conn)
+    snap_id = g.save_snapshot(mock_conn, "TEST_LABEL")
+    assert snap_id == "snap-uuid-123"
+
+
+def test_engine_run_full_analysis_mocked():
+    from unittest.mock import MagicMock
+
+    from src.analytics.network_graph import NetworkAnalysisEngine
+
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+    node_rows = [
+        {
+            "node_id": "node-1",
+            "classification": "RADAR_DOME",
+            "lon": 23.1,
+            "lat": 54.1,
+            "priority_score": 0.9,
+            "area_sq_m": 100.0,
+            "zone_id": "Z1",
+            "dark_event_count": 2,
+            "threat_score": 0.8,
+        },
+        {
+            "node_id": "node-2",
+            "classification": "LOGISTICS_DEPOT",
+            "lon": 23.2,
+            "lat": 54.2,
+            "priority_score": 0.7,
+            "area_sq_m": 200.0,
+            "zone_id": "Z1",
+            "dark_event_count": 1,
+            "threat_score": 0.5,
+        },
+    ]
+    edge_rows = [
+        {
+            "source_id": "node-1",
+            "target_id": "node-2",
+            "event_type": "AIS",
+            "flow_count": 3,
+            "mean_dark_threat": 0.7,
+            "distance_km": 15.0,
+        }
+    ]
+
+    mock_cur.fetchall.side_effect = [node_rows, edge_rows]
+    mock_cur.fetchone.return_value = ("snap-uuid-456",)
+
+    engine = NetworkAnalysisEngine(mock_conn)
+    result = engine.run_full_analysis(snapshot_label="TEST", n_episodes=5)
+    assert result.node_count == 2
+    assert result.edge_count == 1
+    assert "node-1" in result.critical_node_ids
+    assert engine.get_graph_json() is not None
+
+
+def test_engine_get_latest_snapshot_branches():
+    from unittest.mock import MagicMock
+
+    from src.analytics.network_graph import NetworkAnalysisEngine
+
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+    engine = NetworkAnalysisEngine(mock_conn)
+
+    mock_cur.fetchone.return_value = {"id": "uuid-1", "snapshot_label": "TEST"}
+    snap = engine.get_latest_snapshot(mock_conn)
+    assert snap is not None
+    assert snap["id"] == "uuid-1"
+
+    mock_cur.fetchone.return_value = None
+    assert engine.get_latest_snapshot(mock_conn) is None
+
+    mock_conn.cursor.side_effect = Exception("DB error")
+    assert engine.get_latest_snapshot(mock_conn) is None
+
+
+def test_logistics_network_env_direct(sample_nodes, sample_edges):
+    """Test Gymnasium env step & reset logic directly."""
+    try:
+        from src.analytics.network_graph import LogisticsNetworkEnv
+    except (ImportError, AttributeError):
+        pytest.skip("Gymnasium not installed")
+
+    g = _build_graph(sample_nodes, sample_edges)
+    env = LogisticsNetworkEnv(g)
+    obs, info = env.reset()
+    assert obs.shape == (5,)
+    obs, reward, term, trunc, info = env.step(0)
+    assert obs.shape == (5,)
+    assert isinstance(reward, float)
+    env.render()

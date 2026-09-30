@@ -47,8 +47,16 @@ def _make_ais_csv(rows: list[dict]) -> Path:
         mode="w", suffix="_ais_vessel.csv", delete=False, newline="", encoding="utf-8"
     )
     fieldnames = [
-        "mmsi", "timestamp", "lon", "lat", "vessel_name",
-        "vessel_type", "flag", "speed", "course", "heading",
+        "mmsi",
+        "timestamp",
+        "lon",
+        "lat",
+        "vessel_name",
+        "vessel_type",
+        "flag",
+        "speed",
+        "course",
+        "heading",
     ]
     writer = csv.DictWriter(tmp, fieldnames=fieldnames)
     writer.writeheader()
@@ -104,20 +112,22 @@ def test_to_float_invalid():
 
 def test_parse_ais_csv_basic():
     """Parse a minimal AIS CSV with required columns."""
-    fp = _make_ais_csv([
-        {
-            "mmsi": "123456789",
-            "timestamp": "2026-09-01T12:00:00Z",
-            "lon": "23.15",
-            "lat": "54.22",
-            "vessel_name": "MV CAELUM",
-            "vessel_type": "CARGO",
-            "flag": "PL",
-            "speed": "8.5",
-            "course": "180.0",
-            "heading": "182.0",
-        }
-    ])
+    fp = _make_ais_csv(
+        [
+            {
+                "mmsi": "123456789",
+                "timestamp": "2026-09-01T12:00:00Z",
+                "lon": "23.15",
+                "lat": "54.22",
+                "vessel_name": "MV CAELUM",
+                "vessel_type": "CARGO",
+                "flag": "PL",
+                "speed": "8.5",
+                "course": "180.0",
+                "heading": "182.0",
+            }
+        ]
+    )
     records = list(parse_ais_csv(fp))
     assert len(records) == 1
     r = records[0]
@@ -131,17 +141,23 @@ def test_parse_ais_csv_basic():
 
 def test_parse_ais_csv_skips_invalid_rows():
     """Rows missing required fields are silently skipped."""
-    fp = _make_ais_csv([
-        {"mmsi": "", "timestamp": "", "lon": "", "lat": ""},  # empty → skip
-        {
-            "mmsi": "987654321",
-            "timestamp": "2026-09-01T13:00:00Z",
-            "lon": "23.20",
-            "lat": "54.25",
-            "vessel_name": "", "vessel_type": "", "flag": "",
-            "speed": "", "course": "", "heading": "",
-        },
-    ])
+    fp = _make_ais_csv(
+        [
+            {"mmsi": "", "timestamp": "", "lon": "", "lat": ""},  # empty → skip
+            {
+                "mmsi": "987654321",
+                "timestamp": "2026-09-01T13:00:00Z",
+                "lon": "23.20",
+                "lat": "54.25",
+                "vessel_name": "",
+                "vessel_type": "",
+                "flag": "",
+                "speed": "",
+                "course": "",
+                "heading": "",
+            },
+        ]
+    )
     records = list(parse_ais_csv(fp))
     assert len(records) == 1
     assert records[0].mmsi == "987654321"
@@ -150,13 +166,22 @@ def test_parse_ais_csv_skips_invalid_rows():
 
 def test_parse_ais_csv_truncates_mmsi():
     """MMSI is capped at 9 characters."""
-    fp = _make_ais_csv([{
-        "mmsi": "123456789EXTRA",
-        "timestamp": "2026-09-01T12:00:00Z",
-        "lon": "23.0", "lat": "54.0",
-        "vessel_name": "X", "vessel_type": "X", "flag": "XX",
-        "speed": "0", "course": "0", "heading": "0",
-    }])
+    fp = _make_ais_csv(
+        [
+            {
+                "mmsi": "123456789EXTRA",
+                "timestamp": "2026-09-01T12:00:00Z",
+                "lon": "23.0",
+                "lat": "54.0",
+                "vessel_name": "X",
+                "vessel_type": "X",
+                "flag": "XX",
+                "speed": "0",
+                "course": "0",
+                "heading": "0",
+            }
+        ]
+    )
     records = list(parse_ais_csv(fp))
     assert len(records[0].mmsi) == 9
     fp.unlink()
@@ -195,12 +220,16 @@ def test_parse_adsb_json_list_of_dicts():
 def test_parse_adsb_json_unix_timestamp():
     """Accept Unix epoch float timestamps."""
     ts_epoch = BASE_TIME.timestamp()
-    fp = _make_adsb_json([{
-        "icao24": "bbb222",
-        "time_position": ts_epoch,
-        "longitude": 23.0,
-        "latitude": 54.0,
-    }])
+    fp = _make_adsb_json(
+        [
+            {
+                "icao24": "bbb222",
+                "time_position": ts_epoch,
+                "longitude": 23.0,
+                "latitude": 54.0,
+            }
+        ]
+    )
     parsed = list(parse_adsb_json(fp))
     assert len(parsed) == 1
     assert parsed[0].timestamp.year == 2026
@@ -211,9 +240,25 @@ def test_parse_adsb_json_opensky_state_vector():
     """Parse OpenSky API state-vector list format."""
     opensky_payload = {
         "states": [
-            ["aaa333", "KLM123  ", "Netherlands", 1693000000.0, 1693000000.0,
-             23.5, 54.5, 9000.0, False, 270.0, 90.0, 0.0, None, 9200.0, "7700",
-             False, 0],
+            [
+                "aaa333",
+                "KLM123  ",
+                "Netherlands",
+                1693000000.0,
+                1693000000.0,
+                23.5,
+                54.5,
+                9000.0,
+                False,
+                270.0,
+                90.0,
+                0.0,
+                None,
+                9200.0,
+                "7700",
+                False,
+                0,
+            ],
         ]
     }
     tmp = tempfile.NamedTemporaryFile(
@@ -234,8 +279,22 @@ def test_parse_adsb_json_opensky_state_vector():
 def test_parse_adsb_json_ndjson():
     """Parse newline-delimited JSON (NDJSON) format."""
     lines = [
-        json.dumps({"icao24": "ccc444", "timestamp": "2026-09-01T12:00:00Z", "longitude": 23.0, "latitude": 54.0}),
-        json.dumps({"icao24": "ddd555", "timestamp": "2026-09-01T12:05:00Z", "longitude": 23.1, "latitude": 54.1}),
+        json.dumps(
+            {
+                "icao24": "ccc444",
+                "timestamp": "2026-09-01T12:00:00Z",
+                "longitude": 23.0,
+                "latitude": 54.0,
+            }
+        ),
+        json.dumps(
+            {
+                "icao24": "ddd555",
+                "timestamp": "2026-09-01T12:05:00Z",
+                "longitude": 23.1,
+                "latitude": 54.1,
+            }
+        ),
     ]
     tmp = tempfile.NamedTemporaryFile(
         mode="w", suffix="_adsb_aircraft.ndjson", delete=False, encoding="utf-8"
@@ -287,7 +346,9 @@ def test_detect_dark_gaps_ais_multiple_vessels():
         VesselTrackRecord(mmsi="AAA111111", timestamp=t0, lon=23.0, lat=54.0),
         VesselTrackRecord(mmsi="AAA111111", timestamp=t_gap, lon=23.5, lat=54.5),
         VesselTrackRecord(mmsi="BBB222222", timestamp=t0, lon=24.0, lat=55.0),
-        VesselTrackRecord(mmsi="BBB222222", timestamp=t0 + timedelta(minutes=5), lon=24.0, lat=55.0),
+        VesselTrackRecord(
+            mmsi="BBB222222", timestamp=t0 + timedelta(minutes=5), lon=24.0, lat=55.0
+        ),
     ]
     gaps = _detect_dark_gaps_ais(tracks, dark_threshold_minutes=60)
     assert len(gaps) == 1
@@ -333,17 +394,29 @@ def test_ingestor_directory_routing():
         with ais_fp.open("w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=["mmsi", "timestamp", "lon", "lat"])
             w.writeheader()
-            w.writerow({"mmsi": "123456789", "timestamp": "2026-09-01T12:00:00Z",
-                        "lon": "23.0", "lat": "54.0"})
+            w.writerow(
+                {
+                    "mmsi": "123456789",
+                    "timestamp": "2026-09-01T12:00:00Z",
+                    "lon": "23.0",
+                    "lat": "54.0",
+                }
+            )
 
         # Create ADS-B file
         adsb_fp = td / "adsb_aircraft_2026.json"
-        adsb_fp.write_text(json.dumps([{
-            "icao24": "aaa111",
-            "timestamp": "2026-09-01T12:00:00Z",
-            "longitude": 23.1,
-            "latitude": 54.1,
-        }]))
+        adsb_fp.write_text(
+            json.dumps(
+                [
+                    {
+                        "icao24": "aaa111",
+                        "timestamp": "2026-09-01T12:00:00Z",
+                        "longitude": 23.1,
+                        "latitude": 54.1,
+                    }
+                ]
+            )
+        )
 
         # Mock DB completely so no real connection is attempted
         mock_conn = MagicMock()
@@ -354,9 +427,17 @@ def test_ingestor_directory_routing():
             with patch("src.etl.telemetry_ingest._insert_vessel_tracks", return_value=1):
                 with patch("src.etl.telemetry_ingest._insert_aircraft_tracks", return_value=1):
                     with patch("src.etl.telemetry_ingest._insert_dark_events", return_value=0):
-                        with patch("src.etl.telemetry_ingest._load_ais_dark_config", return_value=(50.0, 72)):
-                            with patch("src.etl.telemetry_ingest._correlate_dark_ais", return_value=None):
-                                with patch("src.etl.telemetry_ingest._correlate_dark_adsb", return_value=None):
+                        with patch(
+                            "src.etl.telemetry_ingest._load_ais_dark_config",
+                            return_value=(50.0, 72),
+                        ):
+                            with patch(
+                                "src.etl.telemetry_ingest._correlate_dark_ais", return_value=None
+                            ):
+                                with patch(
+                                    "src.etl.telemetry_ingest._correlate_dark_adsb",
+                                    return_value=None,
+                                ):
                                     ingestor = TelemetryIngestor()
                                     stats = ingestor.ingest_directory(td)
 
@@ -467,8 +548,14 @@ def test_telemetry_ingest_dry_run(admin_headers):
         with ais_fp.open("w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=["mmsi", "timestamp", "lon", "lat"])
             w.writeheader()
-            w.writerow({"mmsi": "123456789", "timestamp": "2026-09-01T12:00:00Z",
-                        "lon": "23.0", "lat": "54.0"})
+            w.writerow(
+                {
+                    "mmsi": "123456789",
+                    "timestamp": "2026-09-01T12:00:00Z",
+                    "lon": "23.0",
+                    "lat": "54.0",
+                }
+            )
 
         client = TestClient(app)
         resp = client.post(
@@ -494,7 +581,9 @@ def test_get_network_snapshots_endpoint(auth_headers):
 def test_get_latest_snapshot_404_when_empty(auth_headers):
     """Latest snapshot returns 404 when no snapshots exist (offline mode)."""
     client = TestClient(app)
-    with patch("src.analytics.network_graph.NetworkAnalysisEngine.get_latest_snapshot", return_value=None):
+    with patch(
+        "src.analytics.network_graph.NetworkAnalysisEngine.get_latest_snapshot", return_value=None
+    ):
         resp = client.get("/api/v1/network/snapshots/latest", headers=auth_headers)
     assert resp.status_code == 404
 
@@ -505,5 +594,178 @@ def test_network_graph_endpoint(auth_headers):
     resp = client.get("/api/v1/network/graph", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
-    assert "nodes" in data
+    assert data["nodes"] is not None
     assert "links" in data
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: ADS-B CSV parsing, config, correlation & DB inserts
+# ---------------------------------------------------------------------------
+
+
+def test_parse_adsb_csv():
+    from src.etl.telemetry_ingest import parse_adsb_csv
+
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix="_adsb_aircraft.csv", delete=False, newline="", encoding="utf-8"
+    )
+    writer = csv.DictWriter(
+        tmp, fieldnames=["icao24", "timestamp", "lon", "lat", "callsign", "country", "category"]
+    )
+    writer.writeheader()
+    writer.writerow(
+        {
+            "icao24": "abc123",
+            "timestamp": "2026-09-01T12:00:00Z",
+            "lon": "23.5",
+            "lat": "54.5",
+            "callsign": "TEST01",
+            "country": "Poland",
+            "category": "A3",
+        }
+    )
+    tmp.close()
+    fp = Path(tmp.name)
+    records = list(parse_adsb_csv(fp))
+    assert len(records) == 1
+    assert records[0].icao24 == "abc123"
+    assert records[0].callsign == "TEST01"
+    assert records[0].country_of_origin == "Poland"
+    fp.unlink()
+
+
+def test_load_ais_dark_config():
+    from src.etl.telemetry_ingest import _load_ais_dark_config
+
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+    mock_cur.fetchall.return_value = [
+        ("ais_dark_radius_km", "45.0"),
+        ("ais_dark_time_window_hours", "48"),
+    ]
+    r, t = _load_ais_dark_config(mock_conn)
+    assert r == 45.0
+    assert t == 48
+
+
+def test_correlate_dark_ais():
+    from src.etl.telemetry_ingest import _correlate_dark_ais
+
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+    # Found case
+    mock_cur.fetchone.return_value = {"id": "det-123", "distance_km": 10.0}
+    evt = _correlate_dark_ais(mock_conn, "123456789", "TestShip", BASE_TIME, 23.0, 54.0, 50.0)
+    assert evt is not None
+    assert evt.detection_id == "det-123"
+    assert evt.threat_score > 0.0
+
+    # Not found case
+    mock_cur.fetchone.return_value = None
+    evt_none = _correlate_dark_ais(mock_conn, "123456789", "TestShip", BASE_TIME, 23.0, 54.0, 50.0)
+    assert evt_none is None
+
+
+def test_correlate_dark_adsb():
+    from src.etl.telemetry_ingest import _correlate_dark_adsb
+
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+    mock_cur.fetchone.return_value = {"id": "det-456", "distance_km": 5.0}
+    evt = _correlate_dark_adsb(mock_conn, "abc123", "FLY01", BASE_TIME, 23.0, 54.0, 30.0)
+    assert evt is not None
+    assert evt.detection_id == "det-456"
+
+    mock_cur.fetchone.return_value = None
+    assert _correlate_dark_adsb(mock_conn, "abc123", "FLY01", BASE_TIME, 23.0, 54.0, 30.0) is None
+
+
+def test_insert_functions():
+    from src.etl.telemetry_ingest import (
+        DarkEventRecord,
+        _insert_aircraft_tracks,
+        _insert_dark_events,
+        _insert_vessel_tracks,
+    )
+
+    mock_conn = MagicMock()
+    mock_conn.encoding = "UTF8"
+    mock_cur = MagicMock()
+    mock_cur.connection.encoding = "UTF8"
+    mock_cur.mogrify.side_effect = lambda t, a: b"(values)"
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+    vessel = VesselTrackRecord("123456789", BASE_TIME, 23.0, 54.0)
+    aircraft = AircraftTrackRecord("abc123", BASE_TIME, 23.0, 54.0)
+    dark_event = DarkEventRecord(
+        "AIS", "123456789", "Ship", "det-1", BASE_TIME, None, None, 5.0, 0.8
+    )
+
+    assert _insert_vessel_tracks(mock_conn, [vessel]) == 1
+    assert _insert_aircraft_tracks(mock_conn, [aircraft]) == 1
+    assert _insert_dark_events(mock_conn, [dark_event]) == 1
+
+    # Empty cases
+    assert _insert_vessel_tracks(mock_conn, []) == 0
+    assert _insert_aircraft_tracks(mock_conn, []) == 0
+    assert _insert_dark_events(mock_conn, []) == 0
+
+
+def test_telemetry_ingest_directory_with_inserts():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        td = Path(tmpdir)
+        ais_fp = td / "ais_vessels_2026.csv"
+        with ais_fp.open("w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=["mmsi", "timestamp", "lon", "lat"])
+            w.writeheader()
+            w.writerow(
+                {
+                    "mmsi": "111222333",
+                    "timestamp": "2026-09-01T12:00:00Z",
+                    "lon": "23.0",
+                    "lat": "54.0",
+                }
+            )
+            w.writerow(
+                {
+                    "mmsi": "111222333",
+                    "timestamp": "2026-09-01T14:00:00Z",
+                    "lon": "23.1",
+                    "lat": "54.1",
+                }
+            )
+
+        adsb_fp = td / "adsb_aircraft_2026.json"
+        adsb_fp.write_text(
+            json.dumps(
+                [
+                    {
+                        "icao24": "def456",
+                        "timestamp": "2026-09-01T12:00:00Z",
+                        "longitude": 23.1,
+                        "latitude": 54.1,
+                    }
+                ]
+            )
+        )
+
+        mock_conn = MagicMock()
+        mock_conn.encoding = "UTF8"
+        mock_cur = MagicMock()
+        mock_cur.connection.encoding = "UTF8"
+        mock_cur.mogrify.side_effect = lambda t, a: b"(values)"
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+        mock_cur.fetchall.return_value = []
+        mock_cur.fetchone.return_value = None
+
+        ingestor = TelemetryIngestor(db_conn=mock_conn)
+        stats = ingestor.ingest_directory(td)
+        assert stats.vessel_rows_parsed == 2
+        assert stats.vessel_rows_inserted == 2
+        assert stats.aircraft_rows_parsed == 1
+        assert stats.aircraft_rows_inserted == 1

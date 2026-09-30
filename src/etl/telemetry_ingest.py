@@ -229,10 +229,23 @@ def parse_adsb_json(filepath: Path) -> Iterator[AircraftTrackRecord]:
             if "states" in data:
                 # OpenSky state vector list format
                 keys = [
-                    "icao24", "callsign", "origin_country", "time_position", "last_contact",
-                    "longitude", "latitude", "baro_altitude", "on_ground", "velocity",
-                    "true_track", "vertical_rate", "sensors", "geo_altitude", "squawk",
-                    "spi", "position_source",
+                    "icao24",
+                    "callsign",
+                    "origin_country",
+                    "time_position",
+                    "last_contact",
+                    "longitude",
+                    "latitude",
+                    "baro_altitude",
+                    "on_ground",
+                    "velocity",
+                    "true_track",
+                    "vertical_rate",
+                    "sensors",
+                    "geo_altitude",
+                    "squawk",
+                    "spi",
+                    "position_source",
                 ]
                 for sv in data["states"]:
                     if isinstance(sv, list) and len(sv) >= 7:
@@ -345,6 +358,7 @@ def parse_adsb_csv(filepath: Path) -> Iterator[AircraftTrackRecord]:
 # ---------------------------------------------------------------------------
 # Database persistence helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_db_conn() -> psycopg2.extensions.connection:
     """Create a new PostGIS database connection."""
@@ -583,9 +597,7 @@ def _insert_aircraft_tracks(
     return len(records)
 
 
-def _insert_dark_events(
-    conn: psycopg2.extensions.connection, events: List[DarkEventRecord]
-) -> int:
+def _insert_dark_events(conn: psycopg2.extensions.connection, events: List[DarkEventRecord]) -> int:
     """Insert detected dark-target correlation events."""
     if not events:
         return 0
@@ -622,6 +634,7 @@ def _insert_dark_events(
 # ---------------------------------------------------------------------------
 # Dark-event detection by analysing gaps in consecutive track positions
 # ---------------------------------------------------------------------------
+
 
 def _detect_dark_gaps_ais(
     tracks: List[VesselTrackRecord],
@@ -670,6 +683,7 @@ def _detect_dark_gaps_adsb(
 # Main ingestion orchestrator
 # ---------------------------------------------------------------------------
 
+
 class TelemetryIngestor:
     """Orchestrates local AIS/ADS-B telemetry ingest and dark-target correlation.
 
@@ -713,8 +727,13 @@ class TelemetryIngestor:
             dark_events: List[DarkEventRecord] = []
             for t0, t1 in dark_gaps:
                 evt = _correlate_dark_ais(
-                    conn, t0.mmsi, t0.vessel_name, t0.timestamp,
-                    t0.lon, t0.lat, self._ais_radius_km,
+                    conn,
+                    t0.mmsi,
+                    t0.vessel_name,
+                    t0.timestamp,
+                    t0.lon,
+                    t0.lat,
+                    self._ais_radius_km,
                 )
                 if evt is not None:
                     duration = int((t1.timestamp - t0.timestamp).total_seconds() / 60)
@@ -767,8 +786,13 @@ class TelemetryIngestor:
             dark_events: List[DarkEventRecord] = []
             for t0, t1 in dark_gaps:
                 evt = _correlate_dark_adsb(
-                    conn, t0.icao24, t0.callsign, t0.timestamp,
-                    t0.lon, t0.lat, self._adsb_radius_km,
+                    conn,
+                    t0.icao24,
+                    t0.callsign,
+                    t0.timestamp,
+                    t0.lon,
+                    t0.lat,
+                    self._adsb_radius_km,
                 )
                 if evt is not None:
                     duration = int((t1.timestamp - t0.timestamp).total_seconds() / 60)

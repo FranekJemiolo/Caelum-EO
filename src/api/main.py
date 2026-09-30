@@ -799,7 +799,7 @@ def get_dark_events(
 
 @app.post("/api/v1/network/analyse", response_model=NetworkAnalysisResponse)
 def run_network_analysis(
-    payload: NetworkAnalysisRequest = Body(default=NetworkAnalysisRequest()),
+    payload: NetworkAnalysisRequest = Body(default_factory=NetworkAnalysisRequest),
     current_user: User = Depends(require_roles(["admin", "analyst"])),
 ) -> NetworkAnalysisResponse:
     """Run full logistics network graph analysis with RL training.

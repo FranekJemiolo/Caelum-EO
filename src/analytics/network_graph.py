@@ -67,15 +67,15 @@ RL_DEFAULT_EPISODES = int(os.getenv("RL_TRAINING_EPISODES", "500"))
 class InfraNode:
     """Graph node representing a detected infrastructure target."""
 
-    node_id: str                   # detection UUID
+    node_id: str  # detection UUID
     classification: str
     lon: float
     lat: float
     priority_score: float
     area_sq_m: float
     zone_id: Optional[str] = None
-    dark_event_count: int = 0       # Number of correlated dark events
-    threat_score: float = 0.0       # Aggregated from dark events
+    dark_event_count: int = 0  # Number of correlated dark events
+    threat_score: float = 0.0  # Aggregated from dark events
 
 
 @dataclass
@@ -84,9 +84,9 @@ class TelemetryEdge:
 
     source_id: str
     target_id: str
-    entity_type: str               # "AIS" | "ADSB"
-    flow_count: int                # Number of unique tracks using this path
-    mean_dark_threat: float        # Mean threat score of dark events on this edge
+    entity_type: str  # "AIS" | "ADSB"
+    flow_count: int  # Number of unique tracks using this path
+    mean_dark_threat: float  # Mean threat score of dark events on this edge
     distance_km: float
 
 
@@ -96,18 +96,17 @@ class NetworkAnalysisResult:
 
     node_count: int
     edge_count: int
-    critical_node_ids: List[str]   # High-betweenness-centrality nodes
+    critical_node_ids: List[str]  # High-betweenness-centrality nodes
     predicted_expansion_ids: List[str]  # RL-predicted next build-out candidates
     centrality_scores: Dict[str, float]
     threat_flow_scores: Dict[str, float]
-    computed_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    computed_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 # ---------------------------------------------------------------------------
 # Graph construction
 # ---------------------------------------------------------------------------
+
 
 class LogisticsNetworkGraph:
     """Builds and analyses the logistics network graph from PostGIS data.
@@ -125,8 +124,12 @@ class LogisticsNetworkGraph:
         if self._external_conn is not None:
             return self._external_conn
         return psycopg2.connect(
-            host=POSTGRES_HOST, port=POSTGRES_PORT, dbname=POSTGRES_DB,
-            user=POSTGRES_USER, password=POSTGRES_PASSWORD, connect_timeout=10,
+            host=POSTGRES_HOST,
+            port=POSTGRES_PORT,
+            dbname=POSTGRES_DB,
+            user=POSTGRES_USER,
+            password=POSTGRES_PASSWORD,
+            connect_timeout=10,
         )
 
     def _load_nodes(self, conn: psycopg2.extensions.connection) -> List[InfraNode]:
@@ -222,7 +225,9 @@ class LogisticsNetworkGraph:
             logger.warning("Edge load failed — using edgeless graph", error=str(exc))
         return edges
 
-    def build(self, conn: Optional[psycopg2.extensions.connection] = None) -> "LogisticsNetworkGraph":
+    def build(
+        self, conn: Optional[psycopg2.extensions.connection] = None
+    ) -> "LogisticsNetworkGraph":
         """Build the logistics network DiGraph from PostGIS data."""
         if not _NX_AVAILABLE:
             logger.warning("networkx unavailable — skipping graph build")
@@ -295,11 +300,15 @@ class LogisticsNetworkGraph:
         scores: Dict[str, float] = {}
         for node_id, data in self._graph.nodes(data=True):
             base = float(data.get("threat_score", 0.0))
-            flow_score = sum(
+            flow_in = sum(
                 edata.get("mean_dark_threat", 0.0) * edata.get("flow_count", 1)
                 for _, _, edata in self._graph.in_edges(node_id, data=True)
             )
-            scores[node_id] = round(base + flow_score, 4)
+            flow_out = sum(
+                edata.get("mean_dark_threat", 0.0) * edata.get("flow_count", 1)
+                for _, _, edata in self._graph.out_edges(node_id, data=True)
+            )
+            scores[node_id] = round(base + flow_in + flow_out, 4)
         return scores
 
     def identify_critical_nodes(self, top_n: int = 10) -> List[str]:
@@ -307,17 +316,23 @@ class LogisticsNetworkGraph:
         centrality = self.compute_centrality()
         threat_flow = self.compute_threat_flow()
         all_nodes = set(centrality.keys()) | set(threat_flow.keys())
-        combined = {
-            nid: centrality.get(nid, 0.0) + threat_flow.get(nid, 0.0)
-            for nid in all_nodes
-        }
+        combined = {nid: centrality.get(nid, 0.0) + threat_flow.get(nid, 0.0) for nid in all_nodes}
         return sorted(combined, key=combined.get, reverse=True)[:top_n]  # type: ignore[arg-type]
 
     def to_json(self) -> Dict[str, Any]:
         """Serialise graph to node-link JSON (compatible with D3 / Deck.gl)."""
         if not _NX_AVAILABLE or self._graph is None:
-            return {"nodes": [], "links": []}
-        return nx_json.node_link_data(self._graph)
+            return {"nodes": [], "links": [], "edges": []}
+        try:
+            data = nx_json.node_link_data(self._graph, edges="links")
+        except TypeError:
+            data = nx_json.node_link_data(self._graph)
+        # Ensure both 'links' and 'edges' are present for broad compatibility
+        if "links" in data and "edges" not in data:
+            data["edges"] = data["links"]
+        elif "edges" in data and "links" not in data:
+            data["links"] = data["edges"]
+        return data
 
     def save_snapshot(self, conn: psycopg2.extensions.connection, label: str) -> str:
         """Persist current graph as a network_snapshots row. Returns snapshot UUID."""
@@ -364,22 +379,18 @@ if _RL_AVAILABLE and _NX_AVAILABLE:
         Action space: Discrete — select any node in the graph by index.
         """
 
-        metadata = {"render_modes": []}
+        metadata: Dict[str, Any] = {"render_modes": []}
 
         def __init__(self, network: LogisticsNetworkGraph) -> None:
             super().__init__()
             self._network = network
             self._g = network.graph
-            self._node_ids: List[str] = (
-                list(self._g.nodes()) if self._g is not None else []
-            )
+            self._node_ids: List[str] = list(self._g.nodes()) if self._g is not None else []
             n = max(len(self._node_ids), 1)
 
             self.action_space = spaces.Discrete(n)
             # [priority_score, threat_score, norm_dark_count, degree_centrality, threat_flow]
-            self.observation_space = spaces.Box(
-                low=0.0, high=1.0, shape=(5,), dtype=np.float32
-            )
+            self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(5,), dtype=np.float32)
             self._centrality: Dict[str, float] = {}
             self._threat_flow: Dict[str, float] = {}
             self._visited: set = set()
@@ -417,12 +428,14 @@ if _RL_AVAILABLE and _NX_AVAILABLE:
             self._step_count = 0
             if self._node_ids:
                 self._current_node_idx = int(self.np_random.integers(0, len(self._node_ids)))
-            obs = self._obs_for_node(self._node_ids[self._current_node_idx]) if self._node_ids else np.zeros(5, dtype=np.float32)
+            obs = (
+                self._obs_for_node(self._node_ids[self._current_node_idx])
+                if self._node_ids
+                else np.zeros(5, dtype=np.float32)
+            )
             return obs, {}
 
-        def step(
-            self, action: int
-        ) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
+        def step(self, action: int) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
             self._step_count += 1
             action = int(action) % len(self._node_ids) if self._node_ids else 0
             node_id = self._node_ids[action] if self._node_ids else ""
@@ -448,6 +461,7 @@ if _RL_AVAILABLE and _NX_AVAILABLE:
 # ---------------------------------------------------------------------------
 # RL Training Interface
 # ---------------------------------------------------------------------------
+
 
 class NetworkRLTrainer:
     """Trains an RL agent on the logistics network graph and predicts expansions.
@@ -541,6 +555,7 @@ class NetworkRLTrainer:
 # Main orchestrator
 # ---------------------------------------------------------------------------
 
+
 class NetworkAnalysisEngine:
     """High-level orchestrator: build graph → analyse → train RL → save snapshot."""
 
@@ -553,8 +568,12 @@ class NetworkAnalysisEngine:
         if self._db_conn is not None:
             return self._db_conn
         return psycopg2.connect(
-            host=POSTGRES_HOST, port=POSTGRES_PORT, dbname=POSTGRES_DB,
-            user=POSTGRES_USER, password=POSTGRES_PASSWORD, connect_timeout=10,
+            host=POSTGRES_HOST,
+            port=POSTGRES_PORT,
+            dbname=POSTGRES_DB,
+            user=POSTGRES_USER,
+            password=POSTGRES_PASSWORD,
+            connect_timeout=10,
         )
 
     def run_full_analysis(

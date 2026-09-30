@@ -1542,9 +1542,7 @@ class TriageService:
                 logger.warning("get_dark_events DB failed", error=str(exc))
         return []
 
-    def get_network_snapshots(
-        self, limit: int = 20
-    ) -> List[NetworkSnapshotResponse]:
+    def get_network_snapshots(self, limit: int = 20) -> List[NetworkSnapshotResponse]:
         """Retrieve persisted logistics network graph snapshots."""
         conn = self.get_connection()
         if conn:
@@ -1571,7 +1569,9 @@ class TriageService:
                         edge_count=r["edge_count"],
                         critical_node_ids=list(r["critical_node_ids"] or []),
                         predicted_expansion_ids=list(r["predicted_expansion_ids"] or []),
-                        rl_episode_rewards=list(r["rl_episode_rewards"]) if r.get("rl_episode_rewards") else None,
+                        rl_episode_rewards=list(r["rl_episode_rewards"])
+                        if r.get("rl_episode_rewards")
+                        else None,
                         created_at=str(r["created_at"]),
                     )
                     for r in rows
@@ -1579,7 +1579,6 @@ class TriageService:
             except Exception as exc:
                 logger.warning("get_network_snapshots DB failed", error=str(exc))
         return []
-
 
 
 triage_service = TriageService()

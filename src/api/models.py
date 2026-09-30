@@ -296,7 +296,9 @@ class DarkTargetEventResponse(BaseModel):
 class TelemetryIngestRequest(BaseModel):
     """Request payload for triggering a local telemetry directory ingest."""
 
-    directory_path: str = Field(..., description="Absolute path to the local telemetry dump directory")
+    directory_path: str = Field(
+        ..., description="Absolute path to the local telemetry dump directory"
+    )
     dry_run: bool = Field(False, description="If true, parse and validate files without DB insert")
 
 
@@ -315,8 +317,10 @@ class TelemetryIngestResponse(BaseModel):
 class NetworkAnalysisRequest(BaseModel):
     """Request to trigger full logistics network analysis + RL training."""
 
-    snapshot_label: Optional[str] = Field(None, description="Human-readable label for this snapshot")
-    n_episodes: int = Field(500, ge=10, le=5000, description="RL training episode count")
+    snapshot_label: Optional[str] = Field(
+        default=None, description="Human-readable label for this snapshot"
+    )
+    n_episodes: int = Field(default=500, ge=10, le=5000, description="RL training episode count")
 
 
 class NetworkAnalysisResponse(BaseModel):

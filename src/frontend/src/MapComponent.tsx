@@ -25,8 +25,6 @@ import {
   TrendingUp,
   Network,
   AlertTriangle,
-  Ship,
-  PlaneTakeoff,
 } from "lucide-react";
 
 import {
@@ -448,7 +446,14 @@ export default function MapComponent({
     try {
       const res = await authFetch(
         `${apiUrl}/api/v1/network/analyse`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ n_episodes: 200, snapshot_label: `ANALYST-${new Date().toISOString().slice(0, 10)}` }) },
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            n_episodes: 200,
+            snapshot_label: `ANALYST-${new Date().toISOString().slice(0, 10)}`,
+          }),
+        },
         onLogout,
       );
       if (res && res.ok) {
@@ -767,7 +772,7 @@ export default function MapComponent({
           getFillColor: (d: any) => {
             const alpha = Math.round(120 + (d.threat_score || 0.5) * 135);
             return d.event_type === "AIS"
-              ? [251, 191, 36, alpha]   // Amber for AIS
+              ? [251, 191, 36, alpha] // Amber for AIS
               : [167, 139, 250, alpha]; // Violet for ADS-B
           },
           getLineColor: [255, 255, 255, 60],
@@ -905,7 +910,11 @@ export default function MapComponent({
               </button>
               <button
                 onClick={() => setShowDarkLayer((v) => !v)}
-                title={showDarkLayer ? "Hide Dark-Target Events" : "Show Dark-Target Events (AIS/ADS-B)"}
+                title={
+                  showDarkLayer
+                    ? "Hide Dark-Target Events"
+                    : "Show Dark-Target Events (AIS/ADS-B)"
+                }
                 className={`p-1 rounded transition-colors ${
                   showDarkLayer
                     ? "text-amber-400 bg-amber-900/30"
@@ -1338,7 +1347,10 @@ export default function MapComponent({
         <div
           id="network-vulnerability-panel"
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+          style={{
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(8px)",
+          }}
         >
           <div className="w-full max-w-2xl bg-slate-950 border border-violet-800/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
             {/* Header */}
@@ -1346,8 +1358,12 @@ export default function MapComponent({
               <div className="flex items-center gap-3">
                 <Network className="text-violet-400" size={20} />
                 <div>
-                  <div className="font-bold text-slate-100 tracking-wide">LOGISTICS NETWORK VULNERABILITY</div>
-                  <div className="text-[10px] text-violet-400 font-mono uppercase">V5 · RL-Based Predictive Intelligence · Air-Gapped</div>
+                  <div className="font-bold text-slate-100 tracking-wide">
+                    LOGISTICS NETWORK VULNERABILITY
+                  </div>
+                  <div className="text-[10px] text-violet-400 font-mono uppercase">
+                    V5 · RL-Based Predictive Intelligence · Air-Gapped
+                  </div>
                 </div>
               </div>
               <button
@@ -1362,17 +1378,45 @@ export default function MapComponent({
             {/* Stats Row */}
             <div className="grid grid-cols-4 divide-x divide-slate-800 border-b border-slate-800">
               {[
-                { label: "NODES", value: networkSnapshot?.node_count ?? "—", icon: <Database size={12} />, color: "text-violet-400" },
-                { label: "EDGES", value: networkSnapshot?.edge_count ?? "—", icon: <Activity size={12} />, color: "text-cyan-400" },
-                { label: "CRITICAL", value: networkSnapshot?.critical_node_ids?.length ?? "—", icon: <Flame size={12} />, color: "text-rose-400" },
-                { label: "EXPANSIONS", value: networkSnapshot?.predicted_expansion_ids?.length ?? "—", icon: <TrendingUp size={12} />, color: "text-amber-400" },
+                {
+                  label: "NODES",
+                  value: networkSnapshot?.node_count ?? "—",
+                  icon: <Database size={12} />,
+                  color: "text-violet-400",
+                },
+                {
+                  label: "EDGES",
+                  value: networkSnapshot?.edge_count ?? "—",
+                  icon: <Activity size={12} />,
+                  color: "text-cyan-400",
+                },
+                {
+                  label: "CRITICAL",
+                  value: networkSnapshot?.critical_node_ids?.length ?? "—",
+                  icon: <Flame size={12} />,
+                  color: "text-rose-400",
+                },
+                {
+                  label: "EXPANSIONS",
+                  value:
+                    networkSnapshot?.predicted_expansion_ids?.length ?? "—",
+                  icon: <TrendingUp size={12} />,
+                  color: "text-amber-400",
+                },
               ].map((stat) => (
-                <div key={stat.label} className="flex flex-col items-center py-3 gap-1">
-                  <div className={`flex items-center gap-1 ${stat.color} text-[10px] font-mono`}>
+                <div
+                  key={stat.label}
+                  className="flex flex-col items-center py-3 gap-1"
+                >
+                  <div
+                    className={`flex items-center gap-1 ${stat.color} text-[10px] font-mono`}
+                  >
                     {stat.icon}
                     {stat.label}
                   </div>
-                  <div className="text-2xl font-bold text-slate-100">{stat.value}</div>
+                  <div className="text-2xl font-bold text-slate-100">
+                    {stat.value}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1383,16 +1427,28 @@ export default function MapComponent({
               {networkSnapshot?.critical_node_ids?.length > 0 && (
                 <div>
                   <h3 className="text-xs font-mono font-bold text-rose-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                    <Flame size={11} /> Supply Chain Chokepoints (Critical Nodes)
+                    <Flame size={11} /> Supply Chain Chokepoints (Critical
+                    Nodes)
                   </h3>
                   <div className="space-y-1">
-                    {networkSnapshot.critical_node_ids.map((id: string, i: number) => (
-                      <div key={id} className="flex items-center gap-2 bg-slate-900 rounded-lg px-3 py-1.5 border border-rose-900/30">
-                        <span className="text-[10px] font-mono text-rose-400 w-4">#{i + 1}</span>
-                        <span className="text-xs font-mono text-slate-300 truncate">{id}</span>
-                        <span className="ml-auto text-[9px] font-mono text-rose-500 bg-rose-950/40 px-1.5 py-0.5 rounded">CRITICAL</span>
-                      </div>
-                    ))}
+                    {networkSnapshot.critical_node_ids.map(
+                      (id: string, i: number) => (
+                        <div
+                          key={id}
+                          className="flex items-center gap-2 bg-slate-900 rounded-lg px-3 py-1.5 border border-rose-900/30"
+                        >
+                          <span className="text-[10px] font-mono text-rose-400 w-4">
+                            #{i + 1}
+                          </span>
+                          <span className="text-xs font-mono text-slate-300 truncate">
+                            {id}
+                          </span>
+                          <span className="ml-auto text-[9px] font-mono text-rose-500 bg-rose-950/40 px-1.5 py-0.5 rounded">
+                            CRITICAL
+                          </span>
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -1401,16 +1457,28 @@ export default function MapComponent({
               {networkSnapshot?.predicted_expansion_ids?.length > 0 && (
                 <div>
                   <h3 className="text-xs font-mono font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                    <TrendingUp size={11} /> RL-Predicted Next Build-Out Candidates
+                    <TrendingUp size={11} /> RL-Predicted Next Build-Out
+                    Candidates
                   </h3>
                   <div className="space-y-1">
-                    {networkSnapshot.predicted_expansion_ids.map((id: string, i: number) => (
-                      <div key={id} className="flex items-center gap-2 bg-slate-900 rounded-lg px-3 py-1.5 border border-amber-900/30">
-                        <span className="text-[10px] font-mono text-amber-400 w-4">P{i + 1}</span>
-                        <span className="text-xs font-mono text-slate-300 truncate">{id}</span>
-                        <span className="ml-auto text-[9px] font-mono text-amber-500 bg-amber-950/40 px-1.5 py-0.5 rounded">PREDICTED</span>
-                      </div>
-                    ))}
+                    {networkSnapshot.predicted_expansion_ids.map(
+                      (id: string, i: number) => (
+                        <div
+                          key={id}
+                          className="flex items-center gap-2 bg-slate-900 rounded-lg px-3 py-1.5 border border-amber-900/30"
+                        >
+                          <span className="text-[10px] font-mono text-amber-400 w-4">
+                            P{i + 1}
+                          </span>
+                          <span className="text-xs font-mono text-slate-300 truncate">
+                            {id}
+                          </span>
+                          <span className="ml-auto text-[9px] font-mono text-amber-500 bg-amber-950/40 px-1.5 py-0.5 rounded">
+                            PREDICTED
+                          </span>
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -1419,8 +1487,12 @@ export default function MapComponent({
               {!networkSnapshot && (
                 <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-500">
                   <Network size={40} className="text-violet-800" />
-                  <div className="text-sm font-mono">No network snapshot available.</div>
-                  <div className="text-xs text-slate-600">Run analysis to build the logistics graph.</div>
+                  <div className="text-sm font-mono">
+                    No network snapshot available.
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    Run analysis to build the logistics graph.
+                  </div>
                 </div>
               )}
             </div>
@@ -1429,9 +1501,13 @@ export default function MapComponent({
             <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800 bg-slate-950/80">
               <div className="text-[10px] font-mono text-slate-500">
                 {networkSnapshot?.computed_at
-                  ? `Last computed: ${new Date(networkSnapshot.computed_at).toLocaleString()}`
+                  ? `Last computed: ${new Date(
+                      networkSnapshot.computed_at,
+                    ).toLocaleString()}`
                   : networkSnapshot?.created_at
-                    ? `Snapshot: ${new Date(networkSnapshot.created_at).toLocaleString()}`
+                    ? `Snapshot: ${new Date(
+                        networkSnapshot.created_at,
+                      ).toLocaleString()}`
                     : "No snapshot cached"}
               </div>
               <button
