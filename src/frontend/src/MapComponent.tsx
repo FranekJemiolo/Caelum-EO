@@ -25,7 +25,17 @@ import {
   TrendingUp,
   Network,
   AlertTriangle,
+  Globe,
 } from "lucide-react";
+import * as maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+
+try {
+  maplibregl.setWorkerUrl(maplibreWorkerUrl);
+} catch {
+  // Ignore fallback if worker URL cannot be set
+}
 
 import {
   AuthUser,
@@ -55,8 +65,62 @@ const INITIAL_VIEW_STATE = {
   bearing: -15,
 };
 
-const DARK_MAP_STYLE =
-  "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+// OpenStreetMap Standard Raster Basemap Style Specification
+export const OSM_STANDARD_STYLE: any = {
+  version: 8,
+  sources: {
+    "osm-tiles": {
+      type: "raster",
+      tiles: [
+        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      ],
+      tileSize: 256,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
+      maxzoom: 19,
+    },
+  },
+  layers: [
+    {
+      id: "osm-tiles-layer",
+      type: "raster",
+      source: "osm-tiles",
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
+
+// OpenStreetMap Tactical Dark (CARTO Dark Matter raster tiles)
+export const OSM_DARK_STYLE: any = {
+  version: 8,
+  sources: {
+    "carto-dark-tiles": {
+      type: "raster",
+      tiles: [
+        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+        "https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+      ],
+      tileSize: 256,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>',
+      maxzoom: 19,
+    },
+  },
+  layers: [
+    {
+      id: "carto-dark-layer",
+      type: "raster",
+      source: "carto-dark-tiles",
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
 
 // Classification color palette adhering strictly to Section 5.1 specification:
 // Cyan = RADAR_DOME, Amber = RUNWAY_TAXIWAY, Purple = LOGISTICS_DEPOT,
@@ -290,6 +354,11 @@ export default function MapComponent({
       localStorage.getItem("caelum_hide_demo_onboarding") !== "true"
     );
   });
+
+  // Basemap Style Switcher (OpenStreetMap Standard vs OSM Dark Matter)
+  const [basemapStyle, setBasemapStyle] = useState<"osm" | "dark">("osm");
+  const activeMapStyle =
+    basemapStyle === "osm" ? OSM_STANDARD_STYLE : OSM_DARK_STYLE;
 
   // 3D Terrain & Viewshed Analytics State
   const [showTerrain3D, setShowTerrain3D] = useState<boolean>(false);
@@ -856,11 +925,7 @@ export default function MapComponent({
           };
         }}
       >
-        <Map
-          reuseMaps
-          mapLib={import("maplibre-gl")}
-          mapStyle={DARK_MAP_STYLE}
-        />
+        <Map reuseMaps mapLib={maplibregl} mapStyle={activeMapStyle} />
       </DeckGL>
 
       {/* Floating Tactical HUD Panel (Top Left) */}
@@ -1021,6 +1086,24 @@ export default function MapComponent({
             >
               <Mountain size={13} />
               3D DEM
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() =>
+                setBasemapStyle((prev) => (prev === "osm" ? "dark" : "osm"))
+              }
+              title="Toggle between OpenStreetMap Standard and OSM Dark Matter basemaps"
+              className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors border ${
+                basemapStyle === "osm"
+                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                  : "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_12px_rgba(0,242,254,0.3)]"
+              }`}
+            >
+              <Globe size={13} />
+              {basemapStyle === "osm"
+                ? "Basemap: OpenStreetMap Standard"
+                : "Basemap: OSM Dark Matter"}
             </button>
           </div>
           {useMVT && (
