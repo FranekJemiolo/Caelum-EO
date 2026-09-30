@@ -21,16 +21,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from PIL import Image
 
+from src.analytics.network_graph import network_engine
 from src.api.auth import User, get_current_user, require_roles
 from src.api.auth import router as auth_router
 from src.api.cot_dispatcher import cot_dispatcher
 from src.api.models import (
+    AircraftTrackResponse,
     CoTBroadcastResponse,
+    DarkTargetEventResponse,
     DetectionAuditResponse,
     DetectionCommentCreate,
     DetectionCommentResponse,
     ExportRequest,
     ImageryResponse,
+    NetworkAnalysisRequest,
+    NetworkAnalysisResponse,
+    NetworkSnapshotResponse,
     ReviewPayload,
     ReviewResponse,
     SavedFilterCreate,
@@ -39,7 +45,10 @@ from src.api.models import (
     SitrepResponse,
     SystemConfigItem,
     SystemConfigUpdate,
+    TelemetryIngestRequest,
+    TelemetryIngestResponse,
     VelocityResponse,
+    VesselTrackResponse,
     ViewshedRequest,
     ViewshedResponse,
     ZoneSummary,
@@ -47,6 +56,7 @@ from src.api.models import (
 from src.api.service import triage_service
 from src.api.sitrep_generator import sitrep_generator
 from src.api.velocity import velocity_engine
+from src.etl.telemetry_ingest import telemetry_ingestor
 from src.ops import (
     HTTP_REQUEST_DURATION_SECONDS,
     HTTP_REQUESTS_TOTAL,
@@ -673,6 +683,184 @@ def preview_cot(
 
     xml_str, uid, cot_type, callsign = cot_dispatcher.serialize_cot_xml(detection)
     return Response(content=xml_str, media_type="application/xml")
+
+
+# =============================================================================
+# Version 5 Endpoints: Telemetry Ingest, Dark Events & Network Analysis
+# =============================================================================
+
+
+@app.post("/api/v1/telemetry/ingest", response_model=TelemetryIngestResponse)
+def ingest_telemetry(
+    payload: TelemetryIngestRequest,
+    current_user: User = Depends(require_roles(["admin"])),
+) -> TelemetryIngestResponse:
+    """Trigger local AIS/ADS-B telemetry directory ingest and dark-target correlation.
+
+    Scans the provided local directory for AIS CSV and ADS-B JSON/CSV files,
+    bulk-inserts positions into PostGIS trajectory tables, and runs dark-event
+    gap detection correlated against known EO infrastructure detections.
+    """
+    from pathlib import Path
+
+    directory = Path(payload.directory_path)
+    if not directory.exists():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Directory not found: {payload.directory_path}",
+        )
+
+    if payload.dry_run:
+        # Validate without DB writes by counting parseable records
+        vessel_count = 0
+        aircraft_count = 0
+        from src.etl.telemetry_ingest import parse_adsb_json, parse_ais_csv
+
+        for fp in sorted(directory.rglob("*")):
+            name_lower = fp.stem.lower()
+            suffix = fp.suffix.lower()
+            if suffix == ".csv" and any(kw in name_lower for kw in ("ais", "vessel", "mmsi")):
+                vessel_count += sum(1 for _ in parse_ais_csv(fp))
+            elif suffix in (".json", ".ndjson") and any(
+                kw in name_lower for kw in ("adsb", "aircraft", "flight")
+            ):
+                aircraft_count += sum(1 for _ in parse_adsb_json(fp))
+        return TelemetryIngestResponse(
+            vessel_rows_parsed=vessel_count,
+            vessel_rows_inserted=0,
+            aircraft_rows_parsed=aircraft_count,
+            aircraft_rows_inserted=0,
+            dark_events_detected=0,
+            dark_events_inserted=0,
+            errors=[],
+        )
+
+    stats = telemetry_ingestor.ingest_directory(directory)
+    return TelemetryIngestResponse(
+        vessel_rows_parsed=stats.vessel_rows_parsed,
+        vessel_rows_inserted=stats.vessel_rows_inserted,
+        aircraft_rows_parsed=stats.aircraft_rows_parsed,
+        aircraft_rows_inserted=stats.aircraft_rows_inserted,
+        dark_events_detected=stats.dark_events_detected,
+        dark_events_inserted=stats.dark_events_inserted,
+        errors=stats.errors[:50],  # Truncate error list
+    )
+
+
+@app.get("/api/v1/telemetry/vessels", response_model=List[VesselTrackResponse])
+def get_vessel_tracks(
+    mmsi: Optional[str] = Query(None, description="Filter by MMSI"),
+    dark_only: bool = Query(False, description="Return only dark-event vessels"),
+    limit: int = Query(200, ge=1, le=2000),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_user),
+) -> List[VesselTrackResponse]:
+    """Query AIS vessel tracks from the PostGIS trajectory table."""
+    tracks = triage_service.get_vessel_tracks(
+        mmsi=mmsi, dark_only=dark_only, limit=limit, offset=offset
+    )
+    return tracks
+
+
+@app.get("/api/v1/telemetry/aircraft", response_model=List[AircraftTrackResponse])
+def get_aircraft_tracks(
+    icao24: Optional[str] = Query(None, description="Filter by ICAO24 hex"),
+    dark_only: bool = Query(False, description="Return only dark-event aircraft"),
+    limit: int = Query(200, ge=1, le=2000),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_user),
+) -> List[AircraftTrackResponse]:
+    """Query ADS-B aircraft tracks from the PostGIS trajectory table."""
+    tracks = triage_service.get_aircraft_tracks(
+        icao24=icao24, dark_only=dark_only, limit=limit, offset=offset
+    )
+    return tracks
+
+
+@app.get("/api/v1/telemetry/dark-events", response_model=List[DarkTargetEventResponse])
+def get_dark_events(
+    event_type: Optional[str] = Query(None, description="'AIS' or 'ADSB'"),
+    detection_id: Optional[str] = Query(None, description="Filter by EO detection UUID"),
+    min_threat_score: float = Query(0.0, ge=0.0, le=1.0),
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_user),
+) -> List[DarkTargetEventResponse]:
+    """Retrieve dark-target correlation events sorted by threat score."""
+    events = triage_service.get_dark_events(
+        event_type=event_type,
+        detection_id=detection_id,
+        min_threat_score=min_threat_score,
+        limit=limit,
+        offset=offset,
+    )
+    return events
+
+
+@app.post("/api/v1/network/analyse", response_model=NetworkAnalysisResponse)
+def run_network_analysis(
+    payload: NetworkAnalysisRequest = Body(default=NetworkAnalysisRequest()),
+    current_user: User = Depends(require_roles(["admin", "analyst"])),
+) -> NetworkAnalysisResponse:
+    """Run full logistics network graph analysis with RL training.
+
+    Builds a directed graph of infrastructure detections with telemetry flow edges,
+    computes betweenness centrality for supply-chain critical node identification,
+    trains a Stable Baselines3 PPO agent to predict future build-out expansions,
+    and persists a graph snapshot to the database.
+    """
+    result = network_engine.run_full_analysis(
+        snapshot_label=payload.snapshot_label,
+        n_episodes=payload.n_episodes,
+    )
+    return NetworkAnalysisResponse(
+        node_count=result.node_count,
+        edge_count=result.edge_count,
+        critical_node_ids=result.critical_node_ids,
+        predicted_expansion_ids=result.predicted_expansion_ids,
+        centrality_scores=result.centrality_scores,
+        threat_flow_scores=result.threat_flow_scores,
+        computed_at=result.computed_at,
+    )
+
+
+@app.get("/api/v1/network/graph")
+def get_network_graph(
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Return the current logistics network graph as D3 / Deck.gl node-link JSON."""
+    return network_engine.get_graph_json()
+
+
+@app.get("/api/v1/network/snapshots", response_model=List[NetworkSnapshotResponse])
+def get_network_snapshots(
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+) -> List[NetworkSnapshotResponse]:
+    """List persisted logistics network graph snapshots (most recent first)."""
+    snapshots = triage_service.get_network_snapshots(limit=limit)
+    return snapshots
+
+
+@app.get("/api/v1/network/snapshots/latest", response_model=Optional[NetworkSnapshotResponse])
+def get_latest_network_snapshot(
+    current_user: User = Depends(get_current_user),
+) -> Optional[NetworkSnapshotResponse]:
+    """Retrieve the most recent persisted logistics network graph snapshot."""
+    snap = network_engine.get_latest_snapshot()
+    if snap is None:
+        raise HTTPException(status_code=404, detail="No network snapshots found.")
+    return NetworkSnapshotResponse(
+        id=snap["id"],
+        snapshot_label=snap["snapshot_label"],
+        computation_timestamp=str(snap["computation_timestamp"]),
+        node_count=snap["node_count"],
+        edge_count=snap["edge_count"],
+        critical_node_ids=snap["critical_node_ids"] or [],
+        predicted_expansion_ids=snap["predicted_expansion_ids"] or [],
+        rl_episode_rewards=snap.get("rl_episode_rewards"),
+        created_at=str(snap["created_at"]),
+    )
 
 
 if __name__ == "__main__":

@@ -17,9 +17,13 @@ import structlog
 from psycopg2.extras import RealDictCursor
 
 from src.api.models import (
+    AircraftTrackResponse,
+    DarkTargetEventResponse,
+    NetworkSnapshotResponse,
     ReviewPayload,
     ReviewResponse,
     ReviewStatus,
+    VesselTrackResponse,
     ZoneSummary,
 )
 
@@ -1364,6 +1368,218 @@ class TriageService:
                 logger.warning("Failed caching viewshed calculation in PostGIS", error=str(exc))
 
         return viewshed_feat
+
+    def get_vessel_tracks(
+        self,
+        mmsi: Optional[str] = None,
+        dark_only: bool = False,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> List[VesselTrackResponse]:
+        """Query AIS vessel tracks from PostGIS, with optional MMSI and dark filter."""
+        conn = self.get_connection()
+        if conn:
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    filters = []
+                    params: List[Any] = []
+                    if mmsi:
+                        filters.append("mmsi = %s")
+                        params.append(mmsi)
+                    if dark_only:
+                        filters.append("is_dark = TRUE")
+                    where = ("WHERE " + " AND ".join(filters)) if filters else ""
+                    cur.execute(
+                        f"""
+                        SELECT id::text, mmsi, vessel_name, vessel_type, flag,
+                               timestamp, lon, lat, speed_knots, course_deg,
+                               navigational_status, is_dark, dark_near_infra_km,
+                               ingested_at
+                        FROM vessel_tracks
+                        {where}
+                        ORDER BY timestamp DESC
+                        LIMIT %s OFFSET %s
+                        """,
+                        params + [limit, offset],
+                    )
+                    rows = cur.fetchall()
+                return [
+                    VesselTrackResponse(
+                        id=r["id"],
+                        mmsi=r["mmsi"],
+                        vessel_name=r.get("vessel_name"),
+                        vessel_type=r.get("vessel_type"),
+                        flag=r.get("flag"),
+                        timestamp=str(r["timestamp"]),
+                        lon=float(r["lon"]),
+                        lat=float(r["lat"]),
+                        speed_knots=r.get("speed_knots"),
+                        course_deg=r.get("course_deg"),
+                        navigational_status=r.get("navigational_status"),
+                        is_dark=bool(r["is_dark"]),
+                        dark_near_infra_km=r.get("dark_near_infra_km"),
+                        ingested_at=str(r["ingested_at"]),
+                    )
+                    for r in rows
+                ]
+            except Exception as exc:
+                logger.warning("get_vessel_tracks DB failed", error=str(exc))
+        return []
+
+    def get_aircraft_tracks(
+        self,
+        icao24: Optional[str] = None,
+        dark_only: bool = False,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> List[AircraftTrackResponse]:
+        """Query ADS-B aircraft tracks from PostGIS."""
+        conn = self.get_connection()
+        if conn:
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    filters = []
+                    params: List[Any] = []
+                    if icao24:
+                        filters.append("icao24 = %s")
+                        params.append(icao24.lower())
+                    if dark_only:
+                        filters.append("is_dark = TRUE")
+                    where = ("WHERE " + " AND ".join(filters)) if filters else ""
+                    cur.execute(
+                        f"""
+                        SELECT id::text, icao24, callsign, country_of_origin,
+                               aircraft_category, timestamp, lon, lat,
+                               altitude_baro_m, speed_ms, is_on_ground,
+                               is_dark, dark_near_infra_km, ingested_at
+                        FROM aircraft_tracks
+                        {where}
+                        ORDER BY timestamp DESC
+                        LIMIT %s OFFSET %s
+                        """,
+                        params + [limit, offset],
+                    )
+                    rows = cur.fetchall()
+                return [
+                    AircraftTrackResponse(
+                        id=r["id"],
+                        icao24=r["icao24"],
+                        callsign=r.get("callsign"),
+                        country_of_origin=r.get("country_of_origin"),
+                        aircraft_category=r.get("aircraft_category"),
+                        timestamp=str(r["timestamp"]),
+                        lon=float(r["lon"]),
+                        lat=float(r["lat"]),
+                        altitude_baro_m=r.get("altitude_baro_m"),
+                        speed_ms=r.get("speed_ms"),
+                        is_on_ground=bool(r["is_on_ground"]),
+                        is_dark=bool(r["is_dark"]),
+                        dark_near_infra_km=r.get("dark_near_infra_km"),
+                        ingested_at=str(r["ingested_at"]),
+                    )
+                    for r in rows
+                ]
+            except Exception as exc:
+                logger.warning("get_aircraft_tracks DB failed", error=str(exc))
+        return []
+
+    def get_dark_events(
+        self,
+        event_type: Optional[str] = None,
+        detection_id: Optional[str] = None,
+        min_threat_score: float = 0.0,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[DarkTargetEventResponse]:
+        """Retrieve dark-target correlation events from the PostGIS store."""
+        conn = self.get_connection()
+        if conn:
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    filters = ["threat_score >= %s"]
+                    params: List[Any] = [min_threat_score]
+                    if event_type:
+                        filters.append("event_type = %s")
+                        params.append(event_type.upper())
+                    if detection_id:
+                        filters.append("detection_id = %s::uuid")
+                        params.append(detection_id)
+                    where = "WHERE " + " AND ".join(filters)
+                    cur.execute(
+                        f"""
+                        SELECT id::text, event_type, entity_id, entity_name,
+                               detection_id::text, dark_start, dark_end,
+                               duration_minutes, closest_approach_km,
+                               threat_score, analyst_reviewed, analyst_notes,
+                               created_at
+                        FROM dark_target_events
+                        {where}
+                        ORDER BY threat_score DESC, dark_start DESC
+                        LIMIT %s OFFSET %s
+                        """,
+                        params + [limit, offset],
+                    )
+                    rows = cur.fetchall()
+                return [
+                    DarkTargetEventResponse(
+                        id=r["id"],
+                        event_type=r["event_type"],
+                        entity_id=r["entity_id"],
+                        entity_name=r.get("entity_name"),
+                        detection_id=r["detection_id"],
+                        dark_start=str(r["dark_start"]),
+                        dark_end=str(r["dark_end"]) if r.get("dark_end") else None,
+                        duration_minutes=r.get("duration_minutes"),
+                        closest_approach_km=float(r["closest_approach_km"]),
+                        threat_score=float(r["threat_score"]),
+                        analyst_reviewed=bool(r["analyst_reviewed"]),
+                        analyst_notes=r.get("analyst_notes"),
+                        created_at=str(r["created_at"]),
+                    )
+                    for r in rows
+                ]
+            except Exception as exc:
+                logger.warning("get_dark_events DB failed", error=str(exc))
+        return []
+
+    def get_network_snapshots(
+        self, limit: int = 20
+    ) -> List[NetworkSnapshotResponse]:
+        """Retrieve persisted logistics network graph snapshots."""
+        conn = self.get_connection()
+        if conn:
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(
+                        """
+                        SELECT id::text, snapshot_label, computation_timestamp,
+                               node_count, edge_count, critical_node_ids,
+                               predicted_expansion_ids, rl_episode_rewards, created_at
+                        FROM network_snapshots
+                        ORDER BY created_at DESC
+                        LIMIT %s
+                        """,
+                        (limit,),
+                    )
+                    rows = cur.fetchall()
+                return [
+                    NetworkSnapshotResponse(
+                        id=r["id"],
+                        snapshot_label=r["snapshot_label"],
+                        computation_timestamp=str(r["computation_timestamp"]),
+                        node_count=r["node_count"],
+                        edge_count=r["edge_count"],
+                        critical_node_ids=list(r["critical_node_ids"] or []),
+                        predicted_expansion_ids=list(r["predicted_expansion_ids"] or []),
+                        rl_episode_rewards=list(r["rl_episode_rewards"]) if r.get("rl_episode_rewards") else None,
+                        created_at=str(r["created_at"]),
+                    )
+                    for r in rows
+                ]
+            except Exception as exc:
+                logger.warning("get_network_snapshots DB failed", error=str(exc))
+        return []
+
 
 
 triage_service = TriageService()

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import DeckGL from "@deck.gl/react";
-import { GeoJsonLayer } from "@deck.gl/layers";
+import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { MVTLayer, TerrainLayer } from "@deck.gl/geo-layers";
 import Map from "react-map-gl/maplibre";
 import {
@@ -23,6 +23,10 @@ import {
   Mountain,
   FileText,
   TrendingUp,
+  Network,
+  AlertTriangle,
+  Ship,
+  PlaneTakeoff,
 } from "lucide-react";
 
 import {
@@ -291,6 +295,13 @@ export default function MapComponent({
   );
   const [cotDispatching, setCotDispatching] = useState<boolean>(false);
 
+  // Version 5 State: Dark Events & Network Vulnerability
+  const [darkEvents, setDarkEvents] = useState<any[]>([]);
+  const [networkSnapshot, setNetworkSnapshot] = useState<any | null>(null);
+  const [isNetworkPanelOpen, setIsNetworkPanelOpen] = useState<boolean>(false);
+  const [networkAnalysing, setNetworkAnalysing] = useState<boolean>(false);
+  const [showDarkLayer, setShowDarkLayer] = useState<boolean>(false);
+
   const handleToggleTerrain3D = () => {
     setShowTerrain3D((prev) => {
       const next = !prev;
@@ -410,6 +421,46 @@ export default function MapComponent({
       })
       .catch(() => {});
   }, [apiUrl, onLogout]);
+
+  // Fetch dark-target events for overlay layer
+  useEffect(() => {
+    if (!showDarkLayer) return;
+    authFetch(`${apiUrl}/api/v1/telemetry/dark-events?limit=200`, {}, onLogout)
+      .then((res) => (res && res.ok ? res.json() : []))
+      .then((json) => {
+        if (Array.isArray(json)) setDarkEvents(json);
+      })
+      .catch(() => {});
+  }, [apiUrl, onLogout, showDarkLayer]);
+
+  // Fetch latest network snapshot summary
+  useEffect(() => {
+    authFetch(`${apiUrl}/api/v1/network/snapshots/latest`, {}, onLogout)
+      .then((res) => (res && res.ok ? res.json() : null))
+      .then((json) => {
+        if (json && json.id) setNetworkSnapshot(json);
+      })
+      .catch(() => {});
+  }, [apiUrl, onLogout]);
+
+  const handleRunNetworkAnalysis = async () => {
+    setNetworkAnalysing(true);
+    try {
+      const res = await authFetch(
+        `${apiUrl}/api/v1/network/analyse`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ n_episodes: 200, snapshot_label: `ANALYST-${new Date().toISOString().slice(0, 10)}` }) },
+        onLogout,
+      );
+      if (res && res.ok) {
+        const json = await res.json();
+        setNetworkSnapshot(json);
+      }
+    } catch (err) {
+      console.error("Network analysis failed", err);
+    } finally {
+      setNetworkAnalysing(false);
+    }
+  };
 
   // Automated temporal playback animation
   useEffect(() => {
@@ -693,6 +744,38 @@ export default function MapComponent({
       );
     }
 
+    // V5: Dark-Target Event Overlay (AIS/ADS-B transponder-off events near detections)
+    if (showDarkLayer && darkEvents.length > 0) {
+      list.push(
+        new ScatterplotLayer({
+          id: "dark-events-layer",
+          data: darkEvents,
+          pickable: true,
+          opacity: 0.85,
+          stroked: true,
+          filled: true,
+          radiusScale: 1,
+          radiusMinPixels: 6,
+          radiusMaxPixels: 28,
+          lineWidthMinPixels: 1,
+          getPosition: (d: any) => {
+            // Use closest_approach_km as a proxy for location when we only have detection coords
+            // In production this would use the actual dark-event position stored in tracks
+            return [d.lon ?? 23.15, d.lat ?? 54.22, 0];
+          },
+          getRadius: (d: any) => Math.max(60, (d.threat_score || 0.5) * 300),
+          getFillColor: (d: any) => {
+            const alpha = Math.round(120 + (d.threat_score || 0.5) * 135);
+            return d.event_type === "AIS"
+              ? [251, 191, 36, alpha]   // Amber for AIS
+              : [167, 139, 250, alpha]; // Violet for ADS-B
+          },
+          getLineColor: [255, 255, 255, 60],
+          getLineWidth: 1,
+        }),
+      );
+    }
+
     return list;
   }, [
     filteredFeatures,
@@ -705,6 +788,8 @@ export default function MapComponent({
     handleSelectTarget,
     viewshedFeature,
     showTerrain3D,
+    showDarkLayer,
+    darkEvents,
   ]);
 
   const dateLabel = new Date(scrubberTime).toISOString().slice(0, 10);
@@ -810,6 +895,24 @@ export default function MapComponent({
                 className="p-1 rounded text-cyan-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors"
               >
                 <TrendingUp size={13} />
+              </button>
+              <button
+                onClick={() => setIsNetworkPanelOpen(true)}
+                title="V5: Logistics Network Vulnerability & RL Prediction"
+                className="p-1 rounded text-violet-400 hover:text-violet-300 hover:bg-slate-800 transition-colors"
+              >
+                <Network size={13} />
+              </button>
+              <button
+                onClick={() => setShowDarkLayer((v) => !v)}
+                title={showDarkLayer ? "Hide Dark-Target Events" : "Show Dark-Target Events (AIS/ADS-B)"}
+                className={`p-1 rounded transition-colors ${
+                  showDarkLayer
+                    ? "text-amber-400 bg-amber-900/30"
+                    : "text-slate-400 hover:text-amber-400 hover:bg-slate-800"
+                }`}
+              >
+                <AlertTriangle size={13} />
               </button>
               <button
                 onClick={() => setIsSitrepModalOpen(true)}
@@ -1227,6 +1330,132 @@ export default function MapComponent({
         apiUrl={apiUrl}
         initialZone={selectedZone}
       />
+
+      {/* ================================================================
+          Version 5: Network Vulnerability & RL Intelligence Panel
+          ================================================================ */}
+      {isNetworkPanelOpen && (
+        <div
+          id="network-vulnerability-panel"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+        >
+          <div className="w-full max-w-2xl bg-slate-950 border border-violet-800/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-gradient-to-r from-violet-950/60 to-slate-950">
+              <div className="flex items-center gap-3">
+                <Network className="text-violet-400" size={20} />
+                <div>
+                  <div className="font-bold text-slate-100 tracking-wide">LOGISTICS NETWORK VULNERABILITY</div>
+                  <div className="text-[10px] text-violet-400 font-mono uppercase">V5 · RL-Based Predictive Intelligence · Air-Gapped</div>
+                </div>
+              </div>
+              <button
+                id="close-network-panel"
+                onClick={() => setIsNetworkPanelOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Stats Row */}
+            <div className="grid grid-cols-4 divide-x divide-slate-800 border-b border-slate-800">
+              {[
+                { label: "NODES", value: networkSnapshot?.node_count ?? "—", icon: <Database size={12} />, color: "text-violet-400" },
+                { label: "EDGES", value: networkSnapshot?.edge_count ?? "—", icon: <Activity size={12} />, color: "text-cyan-400" },
+                { label: "CRITICAL", value: networkSnapshot?.critical_node_ids?.length ?? "—", icon: <Flame size={12} />, color: "text-rose-400" },
+                { label: "EXPANSIONS", value: networkSnapshot?.predicted_expansion_ids?.length ?? "—", icon: <TrendingUp size={12} />, color: "text-amber-400" },
+              ].map((stat) => (
+                <div key={stat.label} className="flex flex-col items-center py-3 gap-1">
+                  <div className={`flex items-center gap-1 ${stat.color} text-[10px] font-mono`}>
+                    {stat.icon}
+                    {stat.label}
+                  </div>
+                  <div className="text-2xl font-bold text-slate-100">{stat.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Critical Nodes */}
+              {networkSnapshot?.critical_node_ids?.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-mono font-bold text-rose-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <Flame size={11} /> Supply Chain Chokepoints (Critical Nodes)
+                  </h3>
+                  <div className="space-y-1">
+                    {networkSnapshot.critical_node_ids.map((id: string, i: number) => (
+                      <div key={id} className="flex items-center gap-2 bg-slate-900 rounded-lg px-3 py-1.5 border border-rose-900/30">
+                        <span className="text-[10px] font-mono text-rose-400 w-4">#{i + 1}</span>
+                        <span className="text-xs font-mono text-slate-300 truncate">{id}</span>
+                        <span className="ml-auto text-[9px] font-mono text-rose-500 bg-rose-950/40 px-1.5 py-0.5 rounded">CRITICAL</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Predicted Expansion */}
+              {networkSnapshot?.predicted_expansion_ids?.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-mono font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <TrendingUp size={11} /> RL-Predicted Next Build-Out Candidates
+                  </h3>
+                  <div className="space-y-1">
+                    {networkSnapshot.predicted_expansion_ids.map((id: string, i: number) => (
+                      <div key={id} className="flex items-center gap-2 bg-slate-900 rounded-lg px-3 py-1.5 border border-amber-900/30">
+                        <span className="text-[10px] font-mono text-amber-400 w-4">P{i + 1}</span>
+                        <span className="text-xs font-mono text-slate-300 truncate">{id}</span>
+                        <span className="ml-auto text-[9px] font-mono text-amber-500 bg-amber-950/40 px-1.5 py-0.5 rounded">PREDICTED</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No data state */}
+              {!networkSnapshot && (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-500">
+                  <Network size={40} className="text-violet-800" />
+                  <div className="text-sm font-mono">No network snapshot available.</div>
+                  <div className="text-xs text-slate-600">Run analysis to build the logistics graph.</div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800 bg-slate-950/80">
+              <div className="text-[10px] font-mono text-slate-500">
+                {networkSnapshot?.computed_at
+                  ? `Last computed: ${new Date(networkSnapshot.computed_at).toLocaleString()}`
+                  : networkSnapshot?.created_at
+                    ? `Snapshot: ${new Date(networkSnapshot.created_at).toLocaleString()}`
+                    : "No snapshot cached"}
+              </div>
+              <button
+                id="run-network-analysis-btn"
+                onClick={handleRunNetworkAnalysis}
+                disabled={networkAnalysing || currentUser?.role === "viewer"}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold font-mono transition-colors shadow-lg"
+              >
+                {networkAnalysing ? (
+                  <>
+                    <Activity size={12} className="animate-spin" />
+                    TRAINING RL AGENT…
+                  </>
+                ) : (
+                  <>
+                    <Network size={12} />
+                    RUN ANALYSIS
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Temporal Timeline Scrubber */}
       <footer className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[min(820px,calc(100vw-32px))] z-10 bg-slate-950/90 backdrop-blur-xl border border-slate-800 rounded-2xl px-6 py-3.5 shadow-2xl flex items-center gap-4 text-slate-100">

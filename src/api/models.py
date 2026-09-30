@@ -230,3 +230,116 @@ class CoTBroadcastResponse(BaseModel):
     protocol: str
     xml_payload: str
     timestamp: str
+
+
+# ============================================================================
+# Version 5 Models: Multi-Modal Telemetry, Dark-Target Correlation & Network RL
+# ============================================================================
+
+
+class VesselTrackResponse(BaseModel):
+    """AIS vessel position record."""
+
+    id: str
+    mmsi: str
+    vessel_name: Optional[str] = None
+    vessel_type: Optional[str] = None
+    flag: Optional[str] = None
+    timestamp: str
+    lon: float
+    lat: float
+    speed_knots: Optional[float] = None
+    course_deg: Optional[float] = None
+    navigational_status: Optional[str] = None
+    is_dark: bool
+    dark_near_infra_km: Optional[float] = None
+    ingested_at: str
+
+
+class AircraftTrackResponse(BaseModel):
+    """ADS-B aircraft position record."""
+
+    id: str
+    icao24: str
+    callsign: Optional[str] = None
+    country_of_origin: Optional[str] = None
+    aircraft_category: Optional[str] = None
+    timestamp: str
+    lon: float
+    lat: float
+    altitude_baro_m: Optional[float] = None
+    speed_ms: Optional[float] = None
+    is_on_ground: bool
+    is_dark: bool
+    dark_near_infra_km: Optional[float] = None
+    ingested_at: str
+
+
+class DarkTargetEventResponse(BaseModel):
+    """Correlated dark-transponder event near a known EO detection."""
+
+    id: str
+    event_type: str  # "AIS" | "ADSB"
+    entity_id: str
+    entity_name: Optional[str] = None
+    detection_id: str
+    dark_start: str
+    dark_end: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    closest_approach_km: float
+    threat_score: float
+    analyst_reviewed: bool
+    analyst_notes: Optional[str] = None
+    created_at: str
+
+
+class TelemetryIngestRequest(BaseModel):
+    """Request payload for triggering a local telemetry directory ingest."""
+
+    directory_path: str = Field(..., description="Absolute path to the local telemetry dump directory")
+    dry_run: bool = Field(False, description="If true, parse and validate files without DB insert")
+
+
+class TelemetryIngestResponse(BaseModel):
+    """Summary statistics for a completed telemetry ingest run."""
+
+    vessel_rows_parsed: int
+    vessel_rows_inserted: int
+    aircraft_rows_parsed: int
+    aircraft_rows_inserted: int
+    dark_events_detected: int
+    dark_events_inserted: int
+    errors: List[str]
+
+
+class NetworkAnalysisRequest(BaseModel):
+    """Request to trigger full logistics network analysis + RL training."""
+
+    snapshot_label: Optional[str] = Field(None, description="Human-readable label for this snapshot")
+    n_episodes: int = Field(500, ge=10, le=5000, description="RL training episode count")
+
+
+class NetworkAnalysisResponse(BaseModel):
+    """Result of a logistics network graph analysis and RL run."""
+
+    node_count: int
+    edge_count: int
+    critical_node_ids: List[str]
+    predicted_expansion_ids: List[str]
+    centrality_scores: Dict[str, float]
+    threat_flow_scores: Dict[str, float]
+    computed_at: str
+
+
+class NetworkSnapshotResponse(BaseModel):
+    """Persisted logistics network graph snapshot."""
+
+    id: str
+    snapshot_label: str
+    computation_timestamp: str
+    node_count: int
+    edge_count: int
+    critical_node_ids: List[str]
+    predicted_expansion_ids: List[str]
+    rl_episode_rewards: Optional[List[float]] = None
+    created_at: str

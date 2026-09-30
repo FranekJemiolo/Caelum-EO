@@ -87,6 +87,11 @@ ml = [
     "timm>=1.0.0",
     "segment-anything>=1.0",
 ]
+rl = [
+    "networkx>=3.4.0",
+    "gymnasium>=1.0.0",
+    "stable-baselines3>=2.4.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/FranekJemiolo/Caelum-EO"
