@@ -43,6 +43,8 @@ import { SavedViewsBar } from "./components/SavedViewsBar";
 import { AdminSettingsModal } from "./components/AdminSettingsModal";
 import { SitrepModal } from "./components/SitrepModal";
 import { VelocityModal } from "./components/VelocityModal";
+import { DemoOnboardingModal } from "./components/DemoOnboardingModal";
+import { isDemoMode } from "./demoData";
 
 // Suwalki Gap Strategic Surveillance Corridor Initial Viewport
 const INITIAL_VIEW_STATE = {
@@ -282,6 +284,12 @@ export default function MapComponent({
   const [isSitrepModalOpen, setIsSitrepModalOpen] = useState<boolean>(false);
   const [isVelocityModalOpen, setIsVelocityModalOpen] =
     useState<boolean>(false);
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(() => {
+    return (
+      isDemoMode() &&
+      localStorage.getItem("caelum_hide_demo_onboarding") !== "true"
+    );
+  });
 
   // 3D Terrain & Viewshed Analytics State
   const [showTerrain3D, setShowTerrain3D] = useState<boolean>(false);
@@ -647,7 +655,8 @@ export default function MapComponent({
     }
 
     // 2. Primary Bounding Box & Polygon Layer (MVT Vector Tiles with GeoJSON Fallback)
-    if (useMVT && martinAvailable) {
+    const shouldUseMvt = useMVT && martinAvailable && !isDemoMode();
+    if (shouldUseMvt) {
       list.push(
         new MVTLayer({
           id: "martin-mvt-layer",
@@ -735,10 +744,10 @@ export default function MapComponent({
           minZoom: 0,
           maxZoom: 23,
           elevationDecoder: {
-            rScaler: 6553.6,
-            gScaler: 25.6,
-            bScaler: 0.1,
-            offset: -10000,
+            rScaler: 256,
+            gScaler: 1,
+            bScaler: 1 / 256,
+            offset: -32768,
           },
           elevationData:
             "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
@@ -867,6 +876,20 @@ export default function MapComponent({
             <div className="text-[10px] text-slate-400 font-mono">
               AUTONOMOUS GEOINT PIPELINE
             </div>
+            {isDemoMode() && (
+              <div className="mt-1 flex items-center justify-between px-2 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/40 text-[10px] font-mono text-cyan-300">
+                <span className="flex items-center gap-1 font-bold">
+                  <Sparkles size={11} className="text-cyan-400" />
+                  DEMO REPLICA
+                </span>
+                <button
+                  onClick={() => setIsDemoModalOpen(true)}
+                  className="underline hover:text-cyan-100 cursor-pointer"
+                >
+                  Briefing
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -930,6 +953,15 @@ export default function MapComponent({
               >
                 <FileText size={13} />
               </button>
+              {isDemoMode() && (
+                <button
+                  onClick={() => setIsDemoModalOpen(true)}
+                  title="Caelum-EO Demo Showcase Guide & Architecture Briefing"
+                  className="p-1 rounded text-cyan-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <Sparkles size={13} />
+                </button>
+              )}
               {currentUser.role === "admin" && (
                 <button
                   onClick={() => setIsAdminModalOpen(true)}
@@ -993,7 +1025,11 @@ export default function MapComponent({
           </div>
           {useMVT && (
             <div className="text-[10px] font-mono text-cyan-400/80 px-1 flex items-center justify-between">
-              <span>TILE SERVER: MARTIN (PORT 3001)</span>
+              <span>
+                {isDemoMode()
+                  ? "DEMO REPLICA: STATIC GEOJSON"
+                  : "TILE SERVER: MARTIN (PORT 3001)"}
+              </span>
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             </div>
           )}
@@ -1338,6 +1374,12 @@ export default function MapComponent({
         onClose={() => setIsVelocityModalOpen(false)}
         apiUrl={apiUrl}
         initialZone={selectedZone}
+      />
+
+      {/* Demo Showcase Onboarding Briefing Modal */}
+      <DemoOnboardingModal
+        isOpen={isDemoModalOpen}
+        onClose={() => setIsDemoModalOpen(false)}
       />
 
       {/* ================================================================

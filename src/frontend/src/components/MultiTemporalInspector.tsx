@@ -31,7 +31,7 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
   const [activeTab, setActiveTab] = useState<"visual" | "audit">("visual");
   const [sliderPos, setSliderPos] = useState<number>(50); // Percentage 0 - 100
   const [showMask, setShowMask] = useState<boolean>(true);
-  const [useTitiler, setUseTitiler] = useState<boolean>(true);
+  const [useTitiler, setUseTitiler] = useState<boolean>(() => !isDemoMode());
   const [titilerError, setTitilerError] = useState<boolean>(false);
   const [modality, setModality] = useState<"optical" | "sar" | "fused">(
     "optical",
