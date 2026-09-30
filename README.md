@@ -5,10 +5,14 @@
 [![Kafka](https://img.shields.io/badge/Apache-Kafka-231F20.svg?logo=apache-kafka)](https://kafka.apache.org/)
 [![PostGIS](https://img.shields.io/badge/PostGIS-3.4-336791.svg?logo=postgresql)](https://postgis.net/)
 [![Deck.gl](https://img.shields.io/badge/Deck.gl-9.0-black.svg)](https://deck.gl/)
+[![Live Demo](https://img.shields.io/badge/Demo-Interactive%20GitHub%20Pages-00f2fe.svg?logo=github&logoColor=black)](https://franekjemiolo.github.io/Caelum-EO/)
 
 > **Caelum** _(Latin: sky, the heavens)_ — Continuous automated geospatial intelligence (GEOINT) pipeline for detecting, classifying, and mapping infrastructure build-out using Earth Observation AI foundation models.
 
 Repository: **`github.com/FranekJemiolo/Caelum-EO`**
+Live Interactive Demo: **[https://franekjemiolo.github.io/Caelum-EO/](https://franekjemiolo.github.io/Caelum-EO/)**
+
+> 🛰️ **Interactive Demo Available:** Experience the full Caelum-EO analyst console directly in your browser without spinning up Docker, Kafka, or GPU workers. Explore 3D terrain, multi-temporal swipe comparison, and RL logistics graphs at **[franekjemiolo.github.io/Caelum-EO](https://franekjemiolo.github.io/Caelum-EO/)**.
 
 ---
 
@@ -448,6 +452,20 @@ docker compose -f docker-compose.prod.yml logs -f
 # Gracefully stop production stack:
 docker compose -f docker-compose.prod.yml down
 ```
+
+---
+
+## 🌐 Phase 8: Interactive Public Demo (GitHub Pages)
+
+To showcase Project Caelum-EO to stakeholders, defense technologists, and open-source contributors without requiring local bare-metal GPU clusters, a **Demo Mode** architecture is hosted on **GitHub Pages**:
+
+- **Live Demo URL:** [https://franekjemiolo.github.io/Caelum-EO/](https://franekjemiolo.github.io/Caelum-EO/)
+- **Static Intelligence Snapshot:** Curated detections and analytics from the Suwalki Corridor scenario stored as static GeoJSON/JSON in `src/frontend/public/demo-data/`.
+- **Multi-Temporal Swipe:** Compressed `.webp` satellite chips ($T_0$ baseline, $T_1$ monitoring, and neural change mask) enable real-time interactive swipe inspection without MinIO or TiTiler.
+- **Deck.gl 3D DEM Terrain:** Open Terrarium elevation tiles stream on demand, allowing users to pitch the camera and evaluate radar line-of-sight viewsheds in 3D.
+- **Predictive RL Network Graph:** Interactive force-directed topology visualizer showcasing supply chain bottlenecks and PPO agent construction forecasts.
+- **Optimistic Local Mutations:** Review triage actions (Verify / Dismiss), comments, and audit logs persist locally in browser session storage without backend network errors.
+- **Automated CI/CD:** `.github/workflows/deploy-gh-pages.yml` automatically compiles and deploys the demo on pushes to `main`.
 
 ---
 
