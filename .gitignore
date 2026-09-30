@@ -50,6 +50,7 @@ venv.bak/
 *.nc
 *.h5
 *.geojson
+!src/frontend/public/demo-data/*.geojson
 *.shp
 *.shx
 *.dbf

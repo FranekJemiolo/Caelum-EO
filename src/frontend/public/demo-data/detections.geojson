@@ -1,0 +1,445 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "id": "det-radar-001",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.1812,
+              54.161
+            ],
+            [
+              23.1888,
+              54.161
+            ],
+            [
+              23.1888,
+              54.169
+            ],
+            [
+              23.1812,
+              54.169
+            ],
+            [
+              23.1812,
+              54.161
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "det-radar-001",
+        "classification": "RADAR_DOME",
+        "confidence": 0.94,
+        "priority_score": 0.96,
+        "review_status": "VERIFIED",
+        "analyst_notes": "Confirmed early-warning phased array radar dome on elevated terrain. Reinforced concrete perimeter wall identified.",
+        "zone_id": "ZONE-ALPHA",
+        "created_at": "2026-09-13T10:30:00+00:00",
+        "t0_timestamp": "2026-06-01T10:00:00Z",
+        "t1_timestamp": "2026-09-15T10:30:00Z",
+        "area_sq_meters": 1420.0,
+        "centroid": [
+          23.185,
+          54.165
+        ],
+        "elevation_m": 242.0,
+        "bbox": [
+          23.1812,
+          54.161,
+          23.1888,
+          54.169
+        ]
+      }
+    },
+    {
+      "id": "det-runway-002",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.205,
+              54.118
+            ],
+            [
+              23.235,
+              54.118
+            ],
+            [
+              23.235,
+              54.124
+            ],
+            [
+              23.205,
+              54.124
+            ],
+            [
+              23.205,
+              54.118
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "det-runway-002",
+        "classification": "RUNWAY_TAXIWAY",
+        "confidence": 0.91,
+        "priority_score": 0.89,
+        "review_status": "PENDING",
+        "analyst_notes": "450m tactical runway extension with heavy asphalt overlay and parallel taxiway apron. Rapid construction over 45 days.",
+        "zone_id": "ZONE-ALPHA",
+        "created_at": "2026-09-14T10:30:00+00:00",
+        "t0_timestamp": "2026-06-01T10:00:00Z",
+        "t1_timestamp": "2026-09-15T10:30:00Z",
+        "area_sq_meters": 18500.0,
+        "centroid": [
+          23.22,
+          54.121
+        ],
+        "elevation_m": 165.0,
+        "bbox": [
+          23.205,
+          54.118,
+          23.235,
+          54.124
+        ]
+      }
+    },
+    {
+      "id": "det-depot-003",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.268,
+              54.191
+            ],
+            [
+              23.282,
+              54.191
+            ],
+            [
+              23.282,
+              54.201
+            ],
+            [
+              23.268,
+              54.201
+            ],
+            [
+              23.268,
+              54.191
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "det-depot-003",
+        "classification": "LOGISTICS_DEPOT",
+        "confidence": 0.88,
+        "priority_score": 0.84,
+        "review_status": "VERIFIED",
+        "analyst_notes": "Forward ammunition and fuel distribution hub with 6 hardened storage bunkers and dual rail siding spurs.",
+        "zone_id": "ZONE-BRAVO",
+        "created_at": "2026-09-10T10:30:00+00:00",
+        "t0_timestamp": "2026-05-15T11:00:00Z",
+        "t1_timestamp": "2026-09-15T10:30:00Z",
+        "area_sq_meters": 9600.0,
+        "centroid": [
+          23.275,
+          54.196
+        ],
+        "elevation_m": 178.0,
+        "bbox": [
+          23.268,
+          54.191,
+          23.282,
+          54.201
+        ]
+      }
+    },
+    {
+      "id": "det-sam-004",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.134,
+              54.205
+            ],
+            [
+              23.146,
+              54.205
+            ],
+            [
+              23.146,
+              54.215
+            ],
+            [
+              23.134,
+              54.215
+            ],
+            [
+              23.134,
+              54.205
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "det-sam-004",
+        "classification": "DEFENSE_REVETMENT",
+        "confidence": 0.86,
+        "priority_score": 0.82,
+        "review_status": "PENDING",
+        "analyst_notes": "Hexagonal surface-to-air missile revetment battery with central guidance radar pad and four launcher positions.",
+        "zone_id": "ZONE-BRAVO",
+        "created_at": "2026-09-12T10:30:00+00:00",
+        "t0_timestamp": "2026-06-01T10:00:00Z",
+        "t1_timestamp": "2026-09-15T10:30:00Z",
+        "area_sq_meters": 4300.0,
+        "centroid": [
+          23.14,
+          54.21
+        ],
+        "elevation_m": 215.0,
+        "bbox": [
+          23.134,
+          54.205,
+          23.146,
+          54.215
+        ]
+      }
+    },
+    {
+      "id": "det-bunker-005",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.304,
+              54.081
+            ],
+            [
+              23.316,
+              54.081
+            ],
+            [
+              23.316,
+              54.089
+            ],
+            [
+              23.304,
+              54.089
+            ],
+            [
+              23.304,
+              54.081
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "det-bunker-005",
+        "classification": "COMMAND_BUNKER",
+        "confidence": 0.82,
+        "priority_score": 0.77,
+        "review_status": "PENDING",
+        "analyst_notes": "Sub-surface command and communications bunker excavation. Buried cable trenches connect to southern microwave relay.",
+        "zone_id": "ZONE-CHARLIE",
+        "created_at": "2026-09-11T10:30:00+00:00",
+        "t0_timestamp": "2026-06-01T10:00:00Z",
+        "t1_timestamp": "2026-09-15T10:30:00Z",
+        "area_sq_meters": 2100.0,
+        "centroid": [
+          23.31,
+          54.085
+        ],
+        "elevation_m": 190.0,
+        "bbox": [
+          23.304,
+          54.081,
+          23.316,
+          54.089
+        ]
+      }
+    },
+    {
+      "id": "det-depot-006",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.162,
+              54.095
+            ],
+            [
+              23.174,
+              54.095
+            ],
+            [
+              23.174,
+              54.105
+            ],
+            [
+              23.162,
+              54.105
+            ],
+            [
+              23.162,
+              54.095
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "det-depot-006",
+        "classification": "LOGISTICS_DEPOT",
+        "confidence": 0.79,
+        "priority_score": 0.71,
+        "review_status": "VERIFIED",
+        "analyst_notes": "Vehicle maintenance workshop and heavy equipment staging park.",
+        "zone_id": "ZONE-ALPHA",
+        "created_at": "2026-09-07T10:30:00+00:00",
+        "t0_timestamp": "2026-05-15T11:00:00Z",
+        "t1_timestamp": "2026-09-15T10:30:00Z",
+        "area_sq_meters": 5800.0,
+        "centroid": [
+          23.168,
+          54.1
+        ],
+        "elevation_m": 155.0,
+        "bbox": [
+          23.162,
+          54.095,
+          23.174,
+          54.105
+        ]
+      }
+    },
+    {
+      "id": "det-revetment-007",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.238,
+              54.168
+            ],
+            [
+              23.248,
+              54.168
+            ],
+            [
+              23.248,
+              54.176
+            ],
+            [
+              23.238,
+              54.176
+            ],
+            [
+              23.238,
+              54.168
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "det-revetment-007",
+        "classification": "DEFENSE_REVETMENT",
+        "confidence": 0.75,
+        "priority_score": 0.68,
+        "review_status": "REJECTED",
+        "analyst_notes": "False positive: Civilian gravel quarry excavation confirmed by high-res commercial imagery.",
+        "zone_id": "ZONE-BRAVO",
+        "created_at": "2026-09-09T10:30:00+00:00",
+        "t0_timestamp": "2026-06-01T10:00:00Z",
+        "t1_timestamp": "2026-09-15T10:30:00Z",
+        "area_sq_meters": 3100.0,
+        "centroid": [
+          23.243,
+          54.172
+        ],
+        "elevation_m": 168.0,
+        "bbox": [
+          23.238,
+          54.168,
+          23.248,
+          54.176
+        ]
+      }
+    },
+    {
+      "id": "det-radar-008",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.332,
+              54.152
+            ],
+            [
+              23.342,
+              54.152
+            ],
+            [
+              23.342,
+              54.16
+            ],
+            [
+              23.332,
+              54.16
+            ],
+            [
+              23.332,
+              54.152
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "det-radar-008",
+        "classification": "RADAR_DOME",
+        "confidence": 0.89,
+        "priority_score": 0.85,
+        "review_status": "PENDING",
+        "analyst_notes": "Secondary counter-battery radar mast and generator trailer cluster.",
+        "zone_id": "ZONE-CHARLIE",
+        "created_at": "2026-09-14T16:30:00+00:00",
+        "t0_timestamp": "2026-06-01T10:00:00Z",
+        "t1_timestamp": "2026-09-15T10:30:00Z",
+        "area_sq_meters": 820.0,
+        "centroid": [
+          23.337,
+          54.156
+        ],
+        "elevation_m": 228.0,
+        "bbox": [
+          23.332,
+          54.152,
+          23.342,
+          54.16
+        ]
+      }
+    }
+  ]
+}
