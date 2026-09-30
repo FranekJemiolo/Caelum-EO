@@ -1,0 +1,35 @@
+[
+  {
+    "zone_id": "ZONE-ALPHA",
+    "name": "Suwalki Northern Ridge",
+    "total_detections": 3,
+    "verified_count": 2,
+    "pending_count": 1,
+    "rejected_count": 0,
+    "total_area_sqm": 25720.0,
+    "threat_level": "CRITICAL",
+    "highest_priority": 0.96
+  },
+  {
+    "zone_id": "ZONE-BRAVO",
+    "name": "Druskininkai Rail Corridor",
+    "total_detections": 3,
+    "verified_count": 1,
+    "pending_count": 1,
+    "rejected_count": 1,
+    "total_area_sqm": 17000.0,
+    "threat_level": "ELEVATED",
+    "highest_priority": 0.84
+  },
+  {
+    "zone_id": "ZONE-CHARLIE",
+    "name": "Augustow Forest Sector",
+    "total_detections": 2,
+    "verified_count": 0,
+    "pending_count": 2,
+    "rejected_count": 0,
+    "total_area_sqm": 2920.0,
+    "threat_level": "MODERATE",
+    "highest_priority": 0.85
+  }
+]

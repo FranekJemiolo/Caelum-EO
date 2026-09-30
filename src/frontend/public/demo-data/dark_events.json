@@ -1,0 +1,58 @@
+[
+  {
+    "id": "de-001",
+    "event_type": "ADSB",
+    "entity_id": "4852bf",
+    "entity_name": "MIL-IL76-CARGO",
+    "detection_id": "det-runway-002",
+    "threat_score": 0.92,
+    "closest_approach_km": 1.4,
+    "dark_start": "2026-09-14T02:15:00Z",
+    "dark_end": "2026-09-14T04:45:00Z",
+    "duration_minutes": 150,
+    "lon": 23.218,
+    "lat": 54.122
+  },
+  {
+    "id": "de-002",
+    "event_type": "AIS",
+    "entity_id": "273456789",
+    "entity_name": "CARGO-VOLGA-9",
+    "detection_id": "det-depot-003",
+    "threat_score": 0.84,
+    "closest_approach_km": 3.8,
+    "dark_start": "2026-09-13T18:30:00Z",
+    "dark_end": "2026-09-14T01:15:00Z",
+    "duration_minutes": 405,
+    "lon": 23.272,
+    "lat": 54.198
+  },
+  {
+    "id": "de-003",
+    "event_type": "ADSB",
+    "entity_id": "5041aa",
+    "entity_name": "RECON-UAV-FORPOST",
+    "detection_id": "det-radar-001",
+    "threat_score": 0.96,
+    "closest_approach_km": 0.8,
+    "dark_start": "2026-09-15T06:00:00Z",
+    "dark_end": "2026-09-15T09:30:00Z",
+    "duration_minutes": 210,
+    "lon": 23.186,
+    "lat": 54.164
+  },
+  {
+    "id": "de-004",
+    "event_type": "ADSB",
+    "entity_id": "5011dd",
+    "entity_name": "HELO-MI8-AMTSh",
+    "detection_id": "det-sam-004",
+    "threat_score": 0.79,
+    "closest_approach_km": 2.2,
+    "dark_start": "2026-09-14T14:20:00Z",
+    "dark_end": "2026-09-14T16:00:00Z",
+    "duration_minutes": 100,
+    "lon": 23.142,
+    "lat": 54.208
+  }
+]

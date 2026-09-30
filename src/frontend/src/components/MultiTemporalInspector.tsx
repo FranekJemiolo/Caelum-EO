@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { DetectionFeature } from "../types";
 import { AuditTimeline } from "./AuditTimeline";
+import { isDemoMode, getBaseUrl } from "../demoData";
 
 interface MultiTemporalInspectorProps {
   feature: DetectionFeature | null;
@@ -54,9 +55,21 @@ export const MultiTemporalInspector: React.FC<MultiTemporalInspectorProps> = ({
 
   const props = feature.properties;
   const detId = feature.id;
-  const staticT0Url = `${apiUrl}/api/v1/detections/${detId}/imagery/t0`;
-  const staticT1Url = `${apiUrl}/api/v1/detections/${detId}/imagery/t1`;
-  const maskUrl = `${apiUrl}/api/v1/detections/${detId}/imagery/mask`;
+  const demoActive = isDemoMode();
+  const base = getBaseUrl();
+  const demoT0Url = `${base}demo-data/imagery/t0.webp`;
+  const demoT1Url = `${base}demo-data/imagery/t1.webp`;
+  const demoMaskUrl = `${base}demo-data/imagery/mask.webp`;
+
+  const staticT0Url = demoActive
+    ? demoT0Url
+    : `${apiUrl}/api/v1/detections/${detId}/imagery/t0`;
+  const staticT1Url = demoActive
+    ? demoT1Url
+    : `${apiUrl}/api/v1/detections/${detId}/imagery/t1`;
+  const maskUrl = demoActive
+    ? demoMaskUrl
+    : `${apiUrl}/api/v1/detections/${detId}/imagery/mask`;
 
   // Compute dynamic TiTiler COG stream URLs if COG URI exists or dynamically crop via TiTiler
   const coords = feature.geometry?.coordinates?.[0] || [];

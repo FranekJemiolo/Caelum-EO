@@ -1,0 +1,39 @@
+[
+  {
+    "id": "sitrep-demo-001",
+    "title": "SITREP-20260915-SUWALKI: Rapid Logistic Build-out & Radar Activation",
+    "classification": "TOP SECRET // NOFORN // AIR-GAPPED GEOINT",
+    "author": "Autonomous SITREP Generator (Local DeepSeek-R1-14B)",
+    "created_at": "2026-09-15T10:45:00Z",
+    "zone_id": "ZONE-ALPHA",
+    "executive_summary": "High-confidence automated detection identifies an active logistical surge in the Suwalki Surveillance Sector. The completion of a 450m tactical runway extension (det-runway-002) paired with the operationalization of an early-warning phased array radar dome (det-radar-001) suggests forward air-ground integration within the past 45 days.",
+    "tactical_assessment": "The reinforcement learning supply chain model reveals critical dependency flow from Druskininkai Rail Depot (det-depot-003) directly to the newly surfaced airfield. Combined with 4 correlated dark ADS-B cargo flights (IL-76 transponder blackout), adversary intent points to an operational forward logistics base.",
+    "key_findings": [
+      "Early Warning Radar (det-radar-001) operational on high-elevation ridge line (+242m ASL).",
+      "Tactical Airstrip extension (det-runway-002) paved with heavy asphalt (18,500 m\u00b2 total surface).",
+      "Supply chain choke-point localized at depot det-depot-003 with betweenness centrality of 0.82."
+    ],
+    "recommended_actions": [
+      "Task Sentinel-1 SAR constellation for coherent interferometric change detection (InSAR) on suspected bunker det-bunker-005.",
+      "Broadcast Cursor-on-Target (CoT) tactical marker to NATO enhanced Forward Presence (eFP) tactical edge units via ATAK.",
+      "Escalate Surveillance Priority for Sector ZONE-ALPHA to Level 1."
+    ]
+  },
+  {
+    "id": "sitrep-demo-002",
+    "title": "SITREP-20260912-SECTOR-BRAVO: Anti-Air Defense Net Hardening",
+    "classification": "SECRET // REL TO NATO",
+    "author": "Autonomous SITREP Generator (Local LLaMA-3.3-70B)",
+    "created_at": "2026-09-12T16:00:00Z",
+    "zone_id": "ZONE-BRAVO",
+    "executive_summary": "Verification of earthwork revetments confirms installation of surface-to-air missile guidance radar pads (det-sam-004) flanking the primary supply highway.",
+    "tactical_assessment": "Air defense umbrella now overlaps with Suwalki Northern Ridge corridor, creating a low-altitude anti-access/area-denial (A2/AD) bubble up to FL250.",
+    "key_findings": [
+      "Revetment layout matches S-350 / Buk-M3 air defense battery configuration.",
+      "Rejection of quarry anomaly det-revetment-007 prevents false alarm tasking."
+    ],
+    "recommended_actions": [
+      "Simulate 3D radar viewshed coverage using SRTM 30m DEM to detect low-altitude terrain masking corridors."
+    ]
+  }
+]

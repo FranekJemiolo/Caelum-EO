@@ -9,7 +9,7 @@ import {
   Satellite,
 } from "lucide-react";
 import { AuthUser, AuthTokenResponse } from "../types";
-import { setAuthSession } from "../auth";
+import { setAuthSession, isDemoMode } from "../auth";
 
 interface LoginScreenProps {
   onLoginSuccess: (user: AuthUser) => void;
@@ -25,6 +25,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
+  const demoActive = isDemoMode();
+
   const handleQuickSelect = (u: string, p: string) => {
     setUsername(u);
     setPassword(p);
@@ -35,6 +37,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
+
+    if (demoActive) {
+      setTimeout(() => {
+        const role = username.toLowerCase().includes("admin")
+          ? "admin"
+          : "analyst";
+        const demoData: AuthTokenResponse = {
+          access_token: `demo-token-${Date.now()}`,
+          token_type: "bearer",
+          username: username || "analyst_viper",
+          role: role as any,
+        };
+        setAuthSession(demoData);
+        onLoginSuccess({
+          id: demoData.username,
+          username: demoData.username,
+          role: demoData.role,
+        });
+        setLoading(false);
+      }, 300);
+      return;
+    }
 
     try {
       const formData = new URLSearchParams();
@@ -102,11 +126,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </p>
         </div>
 
-        {/* Security Banner */}
-        <div className="px-3.5 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono flex items-center gap-2">
-          <Shield size={14} className="shrink-0" />
-          <span>RESTRICTED ACCESS · CLEARANCE REQUIRED</span>
-        </div>
+        {/* Security Banner / Demo Banner */}
+        {demoActive ? (
+          <div className="px-3.5 py-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-[11px] font-mono flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 font-bold tracking-wider">
+                <Satellite size={14} className="text-cyan-400 shrink-0" />
+                DEMO MODE: AIR-GAPPED SIMULATION
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-cyan-400 text-slate-950 text-[9px] font-bold">
+                STATIC
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              Static public showcase running on GitHub Pages without backend
+              requirements.
+            </p>
+          </div>
+        ) : (
+          <div className="px-3.5 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono flex items-center gap-2">
+            <Shield size={14} className="shrink-0" />
+            <span>RESTRICTED ACCESS · CLEARANCE REQUIRED</span>
+          </div>
+        )}
 
         {/* Error Alert */}
         {errorMsg && (

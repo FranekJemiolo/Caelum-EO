@@ -1,0 +1,541 @@
+{
+  "network": {
+    "id": "snap-demo-v5",
+    "snapshot_label": "DEMO-TACTICAL-SNAPSHOT-SUWALKI",
+    "computation_timestamp": "2026-09-15T10:30:00+00:00",
+    "node_count": 8,
+    "edge_count": 8,
+    "critical_node_ids": [
+      "det-depot-003",
+      "det-runway-002",
+      "det-radar-001"
+    ],
+    "predicted_expansion_ids": [
+      "det-bunker-005",
+      "det-sam-004"
+    ],
+    "centrality_scores": {
+      "det-radar-001": 0.68,
+      "det-depot-003": 0.82,
+      "det-runway-002": 0.75,
+      "det-sam-004": 0.44,
+      "det-bunker-005": 0.51,
+      "det-depot-006": 0.28,
+      "det-revetment-007": 0.05,
+      "det-radar-008": 0.39
+    },
+    "threat_flow_scores": {
+      "det-radar-001": 4.12,
+      "det-depot-003": 5.86,
+      "det-runway-002": 4.95,
+      "det-sam-004": 3.1,
+      "det-bunker-005": 2.85,
+      "det-depot-006": 1.45,
+      "det-revetment-007": 0.15,
+      "det-radar-008": 2.65
+    },
+    "rl_episode_rewards": [
+      0.12,
+      0.25,
+      0.41,
+      0.58,
+      0.72,
+      0.85,
+      0.91,
+      0.96
+    ],
+    "created_at": "2026-09-15T10:30:00+00:00",
+    "nodes": [
+      {
+        "id": "det-radar-001",
+        "classification": "RADAR_DOME",
+        "lon": 23.185,
+        "lat": 54.165,
+        "priority_score": 0.96,
+        "threat_score": 0.86,
+        "dark_event_count": 3,
+        "zone_id": "ZONE-ALPHA",
+        "area_sq_m": 1420.0
+      },
+      {
+        "id": "det-runway-002",
+        "classification": "RUNWAY_TAXIWAY",
+        "lon": 23.22,
+        "lat": 54.121,
+        "priority_score": 0.89,
+        "threat_score": 0.8,
+        "dark_event_count": 1,
+        "zone_id": "ZONE-ALPHA",
+        "area_sq_m": 18500.0
+      },
+      {
+        "id": "det-depot-003",
+        "classification": "LOGISTICS_DEPOT",
+        "lon": 23.275,
+        "lat": 54.196,
+        "priority_score": 0.84,
+        "threat_score": 0.76,
+        "dark_event_count": 3,
+        "zone_id": "ZONE-BRAVO",
+        "area_sq_m": 9600.0
+      },
+      {
+        "id": "det-sam-004",
+        "classification": "DEFENSE_REVETMENT",
+        "lon": 23.14,
+        "lat": 54.21,
+        "priority_score": 0.82,
+        "threat_score": 0.74,
+        "dark_event_count": 1,
+        "zone_id": "ZONE-BRAVO",
+        "area_sq_m": 4300.0
+      },
+      {
+        "id": "det-bunker-005",
+        "classification": "COMMAND_BUNKER",
+        "lon": 23.31,
+        "lat": 54.085,
+        "priority_score": 0.77,
+        "threat_score": 0.69,
+        "dark_event_count": 1,
+        "zone_id": "ZONE-CHARLIE",
+        "area_sq_m": 2100.0
+      },
+      {
+        "id": "det-depot-006",
+        "classification": "LOGISTICS_DEPOT",
+        "lon": 23.168,
+        "lat": 54.1,
+        "priority_score": 0.71,
+        "threat_score": 0.64,
+        "dark_event_count": 3,
+        "zone_id": "ZONE-ALPHA",
+        "area_sq_m": 5800.0
+      },
+      {
+        "id": "det-revetment-007",
+        "classification": "DEFENSE_REVETMENT",
+        "lon": 23.243,
+        "lat": 54.172,
+        "priority_score": 0.68,
+        "threat_score": 0.61,
+        "dark_event_count": 1,
+        "zone_id": "ZONE-BRAVO",
+        "area_sq_m": 3100.0
+      },
+      {
+        "id": "det-radar-008",
+        "classification": "RADAR_DOME",
+        "lon": 23.337,
+        "lat": 54.156,
+        "priority_score": 0.85,
+        "threat_score": 0.77,
+        "dark_event_count": 3,
+        "zone_id": "ZONE-CHARLIE",
+        "area_sq_m": 820.0
+      }
+    ],
+    "links": [
+      {
+        "source": "det-radar-001",
+        "target": "det-runway-002",
+        "flow_count": 8,
+        "mean_dark_threat": 0.85,
+        "distance_km": 5.4,
+        "entity_type": "ADSB"
+      },
+      {
+        "source": "det-depot-003",
+        "target": "det-runway-002",
+        "flow_count": 14,
+        "mean_dark_threat": 0.78,
+        "distance_km": 9.1,
+        "entity_type": "AIS"
+      },
+      {
+        "source": "det-radar-001",
+        "target": "det-sam-004",
+        "flow_count": 6,
+        "mean_dark_threat": 0.91,
+        "distance_km": 5.8,
+        "entity_type": "ADSB"
+      },
+      {
+        "source": "det-depot-003",
+        "target": "det-sam-004",
+        "flow_count": 5,
+        "mean_dark_threat": 0.65,
+        "distance_km": 11.2,
+        "entity_type": "AIS"
+      },
+      {
+        "source": "det-runway-002",
+        "target": "det-bunker-005",
+        "flow_count": 9,
+        "mean_dark_threat": 0.72,
+        "distance_km": 7.3,
+        "entity_type": "ADSB"
+      },
+      {
+        "source": "det-depot-006",
+        "target": "det-radar-001",
+        "flow_count": 4,
+        "mean_dark_threat": 0.55,
+        "distance_km": 7.5,
+        "entity_type": "AIS"
+      },
+      {
+        "source": "det-radar-008",
+        "target": "det-bunker-005",
+        "flow_count": 7,
+        "mean_dark_threat": 0.81,
+        "distance_km": 8.2,
+        "entity_type": "ADSB"
+      },
+      {
+        "source": "det-depot-003",
+        "target": "det-radar-008",
+        "flow_count": 6,
+        "mean_dark_threat": 0.69,
+        "distance_km": 6.3,
+        "entity_type": "AIS"
+      }
+    ],
+    "edges": [
+      {
+        "source": "det-radar-001",
+        "target": "det-runway-002",
+        "flow_count": 8,
+        "mean_dark_threat": 0.85,
+        "distance_km": 5.4,
+        "entity_type": "ADSB"
+      },
+      {
+        "source": "det-depot-003",
+        "target": "det-runway-002",
+        "flow_count": 14,
+        "mean_dark_threat": 0.78,
+        "distance_km": 9.1,
+        "entity_type": "AIS"
+      },
+      {
+        "source": "det-radar-001",
+        "target": "det-sam-004",
+        "flow_count": 6,
+        "mean_dark_threat": 0.91,
+        "distance_km": 5.8,
+        "entity_type": "ADSB"
+      },
+      {
+        "source": "det-depot-003",
+        "target": "det-sam-004",
+        "flow_count": 5,
+        "mean_dark_threat": 0.65,
+        "distance_km": 11.2,
+        "entity_type": "AIS"
+      },
+      {
+        "source": "det-runway-002",
+        "target": "det-bunker-005",
+        "flow_count": 9,
+        "mean_dark_threat": 0.72,
+        "distance_km": 7.3,
+        "entity_type": "ADSB"
+      },
+      {
+        "source": "det-depot-006",
+        "target": "det-radar-001",
+        "flow_count": 4,
+        "mean_dark_threat": 0.55,
+        "distance_km": 7.5,
+        "entity_type": "AIS"
+      },
+      {
+        "source": "det-radar-008",
+        "target": "det-bunker-005",
+        "flow_count": 7,
+        "mean_dark_threat": 0.81,
+        "distance_km": 8.2,
+        "entity_type": "ADSB"
+      },
+      {
+        "source": "det-depot-003",
+        "target": "det-radar-008",
+        "flow_count": 6,
+        "mean_dark_threat": 0.69,
+        "distance_km": 6.3,
+        "entity_type": "AIS"
+      }
+    ]
+  },
+  "velocity": {
+    "overall_velocity_sqm_per_month": 3420.5,
+    "lookback_months": 12,
+    "time_series": [
+      {
+        "month": "2025-10",
+        "area_built_sqm": 450,
+        "new_detections_count": 0,
+        "mean_velocity": 15.0
+      },
+      {
+        "month": "2025-11",
+        "area_built_sqm": 800,
+        "new_detections_count": 0,
+        "mean_velocity": 26.6
+      },
+      {
+        "month": "2025-12",
+        "area_built_sqm": 620,
+        "new_detections_count": 0,
+        "mean_velocity": 20.0
+      },
+      {
+        "month": "2026-01",
+        "area_built_sqm": 1200,
+        "new_detections_count": 1,
+        "mean_velocity": 38.7
+      },
+      {
+        "month": "2026-02",
+        "area_built_sqm": 1950,
+        "new_detections_count": 1,
+        "mean_velocity": 69.6
+      },
+      {
+        "month": "2026-03",
+        "area_built_sqm": 3100,
+        "new_detections_count": 1,
+        "mean_velocity": 100.0
+      },
+      {
+        "month": "2026-04",
+        "area_built_sqm": 4800,
+        "new_detections_count": 2,
+        "mean_velocity": 160.0
+      },
+      {
+        "month": "2026-05",
+        "area_built_sqm": 7200,
+        "new_detections_count": 3,
+        "mean_velocity": 232.2
+      },
+      {
+        "month": "2026-06",
+        "area_built_sqm": 9400,
+        "new_detections_count": 4,
+        "mean_velocity": 313.3
+      },
+      {
+        "month": "2026-07",
+        "area_built_sqm": 12800,
+        "new_detections_count": 5,
+        "mean_velocity": 412.9
+      },
+      {
+        "month": "2026-08",
+        "area_built_sqm": 16400,
+        "new_detections_count": 6,
+        "mean_velocity": 529.0
+      },
+      {
+        "month": "2026-09",
+        "area_built_sqm": 21850,
+        "new_detections_count": 8,
+        "mean_velocity": 728.3
+      }
+    ]
+  },
+  "zones": [
+    {
+      "zone_id": "ZONE-ALPHA",
+      "name": "Suwalki Northern Ridge",
+      "total_detections": 3,
+      "verified_count": 2,
+      "pending_count": 1,
+      "rejected_count": 0,
+      "total_area_sqm": 25720.0,
+      "threat_level": "CRITICAL",
+      "highest_priority": 0.96
+    },
+    {
+      "zone_id": "ZONE-BRAVO",
+      "name": "Druskininkai Rail Corridor",
+      "total_detections": 3,
+      "verified_count": 1,
+      "pending_count": 1,
+      "rejected_count": 1,
+      "total_area_sqm": 17000.0,
+      "threat_level": "ELEVATED",
+      "highest_priority": 0.84
+    },
+    {
+      "zone_id": "ZONE-CHARLIE",
+      "name": "Augustow Forest Sector",
+      "total_detections": 2,
+      "verified_count": 0,
+      "pending_count": 2,
+      "rejected_count": 0,
+      "total_area_sqm": 2920.0,
+      "threat_level": "MODERATE",
+      "highest_priority": 0.85
+    }
+  ],
+  "dark_events": [
+    {
+      "id": "de-001",
+      "event_type": "ADSB",
+      "entity_id": "4852bf",
+      "entity_name": "MIL-IL76-CARGO",
+      "detection_id": "det-runway-002",
+      "threat_score": 0.92,
+      "closest_approach_km": 1.4,
+      "dark_start": "2026-09-14T02:15:00Z",
+      "dark_end": "2026-09-14T04:45:00Z",
+      "duration_minutes": 150,
+      "lon": 23.218,
+      "lat": 54.122
+    },
+    {
+      "id": "de-002",
+      "event_type": "AIS",
+      "entity_id": "273456789",
+      "entity_name": "CARGO-VOLGA-9",
+      "detection_id": "det-depot-003",
+      "threat_score": 0.84,
+      "closest_approach_km": 3.8,
+      "dark_start": "2026-09-13T18:30:00Z",
+      "dark_end": "2026-09-14T01:15:00Z",
+      "duration_minutes": 405,
+      "lon": 23.272,
+      "lat": 54.198
+    },
+    {
+      "id": "de-003",
+      "event_type": "ADSB",
+      "entity_id": "5041aa",
+      "entity_name": "RECON-UAV-FORPOST",
+      "detection_id": "det-radar-001",
+      "threat_score": 0.96,
+      "closest_approach_km": 0.8,
+      "dark_start": "2026-09-15T06:00:00Z",
+      "dark_end": "2026-09-15T09:30:00Z",
+      "duration_minutes": 210,
+      "lon": 23.186,
+      "lat": 54.164
+    },
+    {
+      "id": "de-004",
+      "event_type": "ADSB",
+      "entity_id": "5011dd",
+      "entity_name": "HELO-MI8-AMTSh",
+      "detection_id": "det-sam-004",
+      "threat_score": 0.79,
+      "closest_approach_km": 2.2,
+      "dark_start": "2026-09-14T14:20:00Z",
+      "dark_end": "2026-09-14T16:00:00Z",
+      "duration_minutes": 100,
+      "lon": 23.142,
+      "lat": 54.208
+    }
+  ],
+  "sitreps": [
+    {
+      "id": "sitrep-demo-001",
+      "title": "SITREP-20260915-SUWALKI: Rapid Logistic Build-out & Radar Activation",
+      "classification": "TOP SECRET // NOFORN // AIR-GAPPED GEOINT",
+      "author": "Autonomous SITREP Generator (Local DeepSeek-R1-14B)",
+      "created_at": "2026-09-15T10:45:00Z",
+      "zone_id": "ZONE-ALPHA",
+      "executive_summary": "High-confidence automated detection identifies an active logistical surge in the Suwalki Surveillance Sector. The completion of a 450m tactical runway extension (det-runway-002) paired with the operationalization of an early-warning phased array radar dome (det-radar-001) suggests forward air-ground integration within the past 45 days.",
+      "tactical_assessment": "The reinforcement learning supply chain model reveals critical dependency flow from Druskininkai Rail Depot (det-depot-003) directly to the newly surfaced airfield. Combined with 4 correlated dark ADS-B cargo flights (IL-76 transponder blackout), adversary intent points to an operational forward logistics base.",
+      "key_findings": [
+        "Early Warning Radar (det-radar-001) operational on high-elevation ridge line (+242m ASL).",
+        "Tactical Airstrip extension (det-runway-002) paved with heavy asphalt (18,500 m\u00b2 total surface).",
+        "Supply chain choke-point localized at depot det-depot-003 with betweenness centrality of 0.82."
+      ],
+      "recommended_actions": [
+        "Task Sentinel-1 SAR constellation for coherent interferometric change detection (InSAR) on suspected bunker det-bunker-005.",
+        "Broadcast Cursor-on-Target (CoT) tactical marker to NATO enhanced Forward Presence (eFP) tactical edge units via ATAK.",
+        "Escalate Surveillance Priority for Sector ZONE-ALPHA to Level 1."
+      ]
+    },
+    {
+      "id": "sitrep-demo-002",
+      "title": "SITREP-20260912-SECTOR-BRAVO: Anti-Air Defense Net Hardening",
+      "classification": "SECRET // REL TO NATO",
+      "author": "Autonomous SITREP Generator (Local LLaMA-3.3-70B)",
+      "created_at": "2026-09-12T16:00:00Z",
+      "zone_id": "ZONE-BRAVO",
+      "executive_summary": "Verification of earthwork revetments confirms installation of surface-to-air missile guidance radar pads (det-sam-004) flanking the primary supply highway.",
+      "tactical_assessment": "Air defense umbrella now overlaps with Suwalki Northern Ridge corridor, creating a low-altitude anti-access/area-denial (A2/AD) bubble up to FL250.",
+      "key_findings": [
+        "Revetment layout matches S-350 / Buk-M3 air defense battery configuration.",
+        "Rejection of quarry anomaly det-revetment-007 prevents false alarm tasking."
+      ],
+      "recommended_actions": [
+        "Simulate 3D radar viewshed coverage using SRTM 30m DEM to detect low-altitude terrain masking corridors."
+      ]
+    }
+  ],
+  "audit": {
+    "det-radar-001": [
+      {
+        "timestamp": "2026-09-13T11:20:00Z",
+        "analyst": "system_prithvi_v2",
+        "action": "AUTO_DETECTED",
+        "notes": "Anomaly detected with confidence 0.94 in Sentinel-2 B04/B8A reflectance ratio."
+      },
+      {
+        "timestamp": "2026-09-13T14:45:00Z",
+        "analyst": "analyst_viper",
+        "action": "STATUS_CHANGED",
+        "previous_status": "PENDING",
+        "new_status": "VERIFIED",
+        "notes": "Confirmed optical dome signature; cross-referenced with Sentinel-1 VV/VH backscatter increase (+4.2 dB)."
+      }
+    ],
+    "det-runway-002": [
+      {
+        "timestamp": "2026-09-14T09:00:00Z",
+        "analyst": "system_prithvi_v2",
+        "action": "AUTO_DETECTED",
+        "notes": "Linear anomaly detected across pixels (40,50) to (65,210). Area: 18,500 m\u00b2."
+      },
+      {
+        "timestamp": "2026-09-14T11:15:00Z",
+        "analyst": "analyst_eagle",
+        "action": "PRIORITY_ESCALATED",
+        "notes": "Escalated priority to 0.89 due to proximity to Suwalki rail corridor."
+      }
+    ]
+  },
+  "comments": {
+    "det-radar-001": [
+      {
+        "id": "c-001",
+        "author": "analyst_viper",
+        "role": "analyst",
+        "timestamp": "2026-09-13T15:00:00Z",
+        "text": "Radome material appears composite dielectric. Thermal infrared shows active heat signature from power generator unit."
+      },
+      {
+        "id": "c-002",
+        "author": "admin",
+        "role": "admin",
+        "timestamp": "2026-09-14T08:30:00Z",
+        "text": "Cursor-on-Target marker broadcasted to tactical edge network via ATAK server."
+      }
+    ],
+    "det-runway-002": [
+      {
+        "id": "c-003",
+        "author": "analyst_eagle",
+        "role": "analyst",
+        "timestamp": "2026-09-14T10:00:00Z",
+        "text": "Asphalt curing marks visible in Sentinel-2 B04. Estimated completion within 7 days."
+      }
+    ]
+  },
+  "last_updated": "2026-09-15T10:30:00+00:00"
+}

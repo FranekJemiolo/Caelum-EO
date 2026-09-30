@@ -1,0 +1,269 @@
+{
+  "id": "snap-demo-v5",
+  "snapshot_label": "DEMO-TACTICAL-SNAPSHOT-SUWALKI",
+  "computation_timestamp": "2026-09-15T10:30:00+00:00",
+  "node_count": 8,
+  "edge_count": 8,
+  "critical_node_ids": [
+    "det-depot-003",
+    "det-runway-002",
+    "det-radar-001"
+  ],
+  "predicted_expansion_ids": [
+    "det-bunker-005",
+    "det-sam-004"
+  ],
+  "centrality_scores": {
+    "det-radar-001": 0.68,
+    "det-depot-003": 0.82,
+    "det-runway-002": 0.75,
+    "det-sam-004": 0.44,
+    "det-bunker-005": 0.51,
+    "det-depot-006": 0.28,
+    "det-revetment-007": 0.05,
+    "det-radar-008": 0.39
+  },
+  "threat_flow_scores": {
+    "det-radar-001": 4.12,
+    "det-depot-003": 5.86,
+    "det-runway-002": 4.95,
+    "det-sam-004": 3.1,
+    "det-bunker-005": 2.85,
+    "det-depot-006": 1.45,
+    "det-revetment-007": 0.15,
+    "det-radar-008": 2.65
+  },
+  "rl_episode_rewards": [
+    0.12,
+    0.25,
+    0.41,
+    0.58,
+    0.72,
+    0.85,
+    0.91,
+    0.96
+  ],
+  "created_at": "2026-09-15T10:30:00+00:00",
+  "nodes": [
+    {
+      "id": "det-radar-001",
+      "classification": "RADAR_DOME",
+      "lon": 23.185,
+      "lat": 54.165,
+      "priority_score": 0.96,
+      "threat_score": 0.86,
+      "dark_event_count": 3,
+      "zone_id": "ZONE-ALPHA",
+      "area_sq_m": 1420.0
+    },
+    {
+      "id": "det-runway-002",
+      "classification": "RUNWAY_TAXIWAY",
+      "lon": 23.22,
+      "lat": 54.121,
+      "priority_score": 0.89,
+      "threat_score": 0.8,
+      "dark_event_count": 1,
+      "zone_id": "ZONE-ALPHA",
+      "area_sq_m": 18500.0
+    },
+    {
+      "id": "det-depot-003",
+      "classification": "LOGISTICS_DEPOT",
+      "lon": 23.275,
+      "lat": 54.196,
+      "priority_score": 0.84,
+      "threat_score": 0.76,
+      "dark_event_count": 3,
+      "zone_id": "ZONE-BRAVO",
+      "area_sq_m": 9600.0
+    },
+    {
+      "id": "det-sam-004",
+      "classification": "DEFENSE_REVETMENT",
+      "lon": 23.14,
+      "lat": 54.21,
+      "priority_score": 0.82,
+      "threat_score": 0.74,
+      "dark_event_count": 1,
+      "zone_id": "ZONE-BRAVO",
+      "area_sq_m": 4300.0
+    },
+    {
+      "id": "det-bunker-005",
+      "classification": "COMMAND_BUNKER",
+      "lon": 23.31,
+      "lat": 54.085,
+      "priority_score": 0.77,
+      "threat_score": 0.69,
+      "dark_event_count": 1,
+      "zone_id": "ZONE-CHARLIE",
+      "area_sq_m": 2100.0
+    },
+    {
+      "id": "det-depot-006",
+      "classification": "LOGISTICS_DEPOT",
+      "lon": 23.168,
+      "lat": 54.1,
+      "priority_score": 0.71,
+      "threat_score": 0.64,
+      "dark_event_count": 3,
+      "zone_id": "ZONE-ALPHA",
+      "area_sq_m": 5800.0
+    },
+    {
+      "id": "det-revetment-007",
+      "classification": "DEFENSE_REVETMENT",
+      "lon": 23.243,
+      "lat": 54.172,
+      "priority_score": 0.68,
+      "threat_score": 0.61,
+      "dark_event_count": 1,
+      "zone_id": "ZONE-BRAVO",
+      "area_sq_m": 3100.0
+    },
+    {
+      "id": "det-radar-008",
+      "classification": "RADAR_DOME",
+      "lon": 23.337,
+      "lat": 54.156,
+      "priority_score": 0.85,
+      "threat_score": 0.77,
+      "dark_event_count": 3,
+      "zone_id": "ZONE-CHARLIE",
+      "area_sq_m": 820.0
+    }
+  ],
+  "links": [
+    {
+      "source": "det-radar-001",
+      "target": "det-runway-002",
+      "flow_count": 8,
+      "mean_dark_threat": 0.85,
+      "distance_km": 5.4,
+      "entity_type": "ADSB"
+    },
+    {
+      "source": "det-depot-003",
+      "target": "det-runway-002",
+      "flow_count": 14,
+      "mean_dark_threat": 0.78,
+      "distance_km": 9.1,
+      "entity_type": "AIS"
+    },
+    {
+      "source": "det-radar-001",
+      "target": "det-sam-004",
+      "flow_count": 6,
+      "mean_dark_threat": 0.91,
+      "distance_km": 5.8,
+      "entity_type": "ADSB"
+    },
+    {
+      "source": "det-depot-003",
+      "target": "det-sam-004",
+      "flow_count": 5,
+      "mean_dark_threat": 0.65,
+      "distance_km": 11.2,
+      "entity_type": "AIS"
+    },
+    {
+      "source": "det-runway-002",
+      "target": "det-bunker-005",
+      "flow_count": 9,
+      "mean_dark_threat": 0.72,
+      "distance_km": 7.3,
+      "entity_type": "ADSB"
+    },
+    {
+      "source": "det-depot-006",
+      "target": "det-radar-001",
+      "flow_count": 4,
+      "mean_dark_threat": 0.55,
+      "distance_km": 7.5,
+      "entity_type": "AIS"
+    },
+    {
+      "source": "det-radar-008",
+      "target": "det-bunker-005",
+      "flow_count": 7,
+      "mean_dark_threat": 0.81,
+      "distance_km": 8.2,
+      "entity_type": "ADSB"
+    },
+    {
+      "source": "det-depot-003",
+      "target": "det-radar-008",
+      "flow_count": 6,
+      "mean_dark_threat": 0.69,
+      "distance_km": 6.3,
+      "entity_type": "AIS"
+    }
+  ],
+  "edges": [
+    {
+      "source": "det-radar-001",
+      "target": "det-runway-002",
+      "flow_count": 8,
+      "mean_dark_threat": 0.85,
+      "distance_km": 5.4,
+      "entity_type": "ADSB"
+    },
+    {
+      "source": "det-depot-003",
+      "target": "det-runway-002",
+      "flow_count": 14,
+      "mean_dark_threat": 0.78,
+      "distance_km": 9.1,
+      "entity_type": "AIS"
+    },
+    {
+      "source": "det-radar-001",
+      "target": "det-sam-004",
+      "flow_count": 6,
+      "mean_dark_threat": 0.91,
+      "distance_km": 5.8,
+      "entity_type": "ADSB"
+    },
+    {
+      "source": "det-depot-003",
+      "target": "det-sam-004",
+      "flow_count": 5,
+      "mean_dark_threat": 0.65,
+      "distance_km": 11.2,
+      "entity_type": "AIS"
+    },
+    {
+      "source": "det-runway-002",
+      "target": "det-bunker-005",
+      "flow_count": 9,
+      "mean_dark_threat": 0.72,
+      "distance_km": 7.3,
+      "entity_type": "ADSB"
+    },
+    {
+      "source": "det-depot-006",
+      "target": "det-radar-001",
+      "flow_count": 4,
+      "mean_dark_threat": 0.55,
+      "distance_km": 7.5,
+      "entity_type": "AIS"
+    },
+    {
+      "source": "det-radar-008",
+      "target": "det-bunker-005",
+      "flow_count": 7,
+      "mean_dark_threat": 0.81,
+      "distance_km": 8.2,
+      "entity_type": "ADSB"
+    },
+    {
+      "source": "det-depot-003",
+      "target": "det-radar-008",
+      "flow_count": 6,
+      "mean_dark_threat": 0.69,
+      "distance_km": 6.3,
+      "entity_type": "AIS"
+    }
+  ]
+}
